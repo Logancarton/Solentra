@@ -1,111 +1,87 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
+import { ActionIcon, Tooltip } from '@mantine/core';
 import { MEDPLUM_VERSION } from '@medplum/core';
-import type { UserConfiguration } from '@medplum/fhirtypes';
 import type { NavbarMenu } from '@medplum/react';
 import { AppShell, Loading, Logo, useMedplum } from '@medplum/react';
-import {
-  IconBrandAsana,
-  IconBuilding,
-  IconDatabase,
-  IconFolder,
-  IconForms,
-  IconId,
-  IconLock,
-  IconLockAccess,
-  IconMicroscope,
-  IconPackages,
-  IconReceipt,
-  IconReportMedical,
-  IconStar,
-  IconWebhook,
-} from '@tabler/icons-react';
-import type { FunctionComponent, JSX } from 'react';
-import { Suspense } from 'react';
+import { IconSettings2 } from '@tabler/icons-react';
+import type { JSX } from 'react';
+import { Suspense, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router';
 import { AppRoutes } from './AppRoutes';
+import { ICON_MAP, loadSidebarConfig, SidebarCustomizer } from './solentra/SidebarCustomizer';
+import type { SidebarSection } from './solentra/SidebarCustomizer';
 
 import './App.css';
 
 export function App(): JSX.Element {
   const medplum = useMedplum();
-  const config = medplum.getUserConfiguration();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const [customizerOpen, setCustomizerOpen] = useState(false);
+  const [sidebarConfig, setSidebarConfig] = useState<SidebarSection[]>(loadSidebarConfig);
 
   if (medplum.isLoading()) {
     return <Loading />;
   }
 
+  const menus = buildMenus(sidebarConfig, () => setCustomizerOpen(true));
+
   return (
-    <AppShell
-      logo={<Logo size={24} />}
-      pathname={location.pathname}
-      searchParams={searchParams}
-      version={MEDPLUM_VERSION}
-      menus={userConfigToMenu(config)}
-      displayAddBookmark={!!config?.id}
-    >
-      <Suspense fallback={<Loading />}>
-        <AppRoutes />
-      </Suspense>
-    </AppShell>
+    <>
+      <AppShell
+        logo={<Logo size={24} />}
+        pathname={location.pathname}
+        searchParams={searchParams}
+        version={MEDPLUM_VERSION}
+        menus={menus}
+        layoutVersion="v2"
+      >
+        <Suspense fallback={<Loading />}>
+          <AppRoutes />
+        </Suspense>
+      </AppShell>
+
+      <SidebarCustomizer
+        opened={customizerOpen}
+        onClose={() => setCustomizerOpen(false)}
+        onSave={(config) => setSidebarConfig(config)}
+      />
+    </>
   );
 }
 
-function userConfigToMenu(config: UserConfiguration | undefined): NavbarMenu[] {
-  const result =
-    config?.menu?.map((menu) => ({
-      title: menu.title,
-      links:
-        menu.link?.map((link) => ({
-          label: link.name,
-          href: link.target,
-          icon: getIcon(link.target),
-        })) || [],
-    })) || [];
+function buildMenus(sections: SidebarSection[], onCustomize: () => void): NavbarMenu[] {
+  const menus: NavbarMenu[] = sections.map((section) => ({
+    title: section.title,
+    links: section.links.map((link) => ({
+      label: link.label,
+      href: link.href,
+      icon: ICON_MAP[link.icon],
+    })),
+  }));
 
-  result.push({
-    title: 'Settings',
+  // Always add customize button at the bottom
+  menus.push({
+    title: '',
     links: [
       {
-        label: 'Security',
-        href: '/security',
-        icon: <IconLock />,
+        label: 'Customize Sidebar',
+        href: '#customize',
+        icon: (
+          <Tooltip label="Customize Sidebar" position="right">
+            <ActionIcon
+              variant="subtle"
+              size="sm"
+              onClick={(e) => { e.preventDefault(); onCustomize(); }}
+            >
+              <IconSettings2 size={18} />
+            </ActionIcon>
+          </Tooltip>
+        ),
       },
     ],
   });
 
-  return result;
-}
-
-const resourceTypeToIcon: Record<string, FunctionComponent> = {
-  Patient: IconStar,
-  Practitioner: IconId,
-  Organization: IconBuilding,
-  ServiceRequest: IconReceipt,
-  DiagnosticReport: IconReportMedical,
-  Questionnaire: IconForms,
-  Project: IconFolder,
-  admin: IconBrandAsana,
-  AccessPolicy: IconLockAccess,
-  Subscription: IconWebhook,
-  batch: IconPackages,
-  Observation: IconMicroscope,
-};
-
-function getIcon(to: string): JSX.Element | undefined {
-  if (to.includes('admin/super/db')) {
-    return <IconDatabase />;
-  }
-  try {
-    const resourceType = new URL(to, 'https://app.medplum.com').pathname.split('/')[1];
-    if (resourceType in resourceTypeToIcon) {
-      const Icon = resourceTypeToIcon[resourceType];
-      return <Icon />;
-    }
-  } catch (_err) {
-    // Ignore
-  }
-  return undefined;
+  return menus;
 }

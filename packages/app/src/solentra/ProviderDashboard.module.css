@@ -1,0 +1,290 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #f4f6f8;
+  padding: 0;
+}
+
+.topBar {
+  background: white;
+  padding: 12px 20px;
+  border-bottom: 1px solid #e9ecef;
+  flex-shrink: 0;
+}
+
+.statBar {
+  background: #f0f4ff;
+  padding: 8px 20px;
+  border-bottom: 1px solid #dde2f0;
+  flex-shrink: 0;
+}
+
+.gridContainer {
+  flex: 1;
+  overflow: hidden;
+  padding: 0;
+  min-height: 0;
+}
+
+/* ── Window chrome ── */
+.windowBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, #f0f0f0 0%, #e4e4e4 100%);
+  border-bottom: 1px solid #c8c8c8;
+  border-radius: 14px 14px 0 0;
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.windowBar:active {
+  cursor: grabbing;
+}
+
+.windowBarAi {
+  background: linear-gradient(180deg, #1a7fd4 0%, #0f6cbd 100%);
+  border-bottom: 1px solid #0a559e;
+}
+
+/* Traffic light buttons */
+.trafficLights {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  transition: filter 0.1s;
+  flex-shrink: 0;
+}
+
+.dot:hover {
+  filter: brightness(0.85);
+}
+
+.dotClose   { background: #ff5f57; box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.15); }
+.dotMin     { background: #febc2e; box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.15); }
+.dotMax     { background: #28c840; box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.15); }
+
+.windowTitle {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.windowTitleAi {
+  color: white;
+}
+
+/* legacy cardHeader kept for any remaining uses */
+.cardHeader {
+  padding: 10px 14px;
+  background: #f8f9fa;
+  cursor: grab;
+  user-select: none;
+}
+
+.cardHeader:active {
+  cursor: grabbing;
+}
+
+.appointmentRow {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f3f5;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.appointmentRow:hover {
+  background: #f0f4ff;
+}
+
+.inboxRow {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f3f5;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.inboxRow:hover {
+  background: #f0f4ff;
+}
+
+.urgent {
+  border-left: 3px solid #fa5252;
+  background: #fff5f5;
+}
+
+.urgent:hover {
+  background: #ffe3e3;
+}
+
+.aiMessage {
+  background: #f0f4ff;
+  border-radius: 8px;
+  padding: 8px 10px;
+  border-left: 3px solid #0f6cbd;
+}
+
+.userMessage {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 8px 10px;
+  border-left: 3px solid #adb5bd;
+  margin-left: 16px;
+}
+
+/* Favorite layout slot buttons */
+.favoriteSlot {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 2px solid #dee2e6;
+  background: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #868e96;
+  transition: all 0.15s;
+}
+
+.favoriteSlot:hover {
+  border-color: #0f6cbd;
+  color: #0f6cbd;
+}
+
+.favoriteSlotActive {
+  border-color: #0f6cbd;
+  background: #0f6cbd;
+  color: white;
+}
+
+.favoriteSlotSaved {
+  border-color: #40c057;
+  color: #40c057;
+}
+
+.favoriteSlotSaved:hover {
+  border-color: #40c057;
+  background: #40c057;
+  color: white;
+}
+
+/* Pin button in window chrome */
+.pinBtn {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  border-radius: 3px;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: opacity 0.15s;
+}
+
+.pinBtn:hover {
+  opacity: 0.7;
+}
+
+/* ── Window control pills (stat bar) ── */
+.windowPill {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px 2px 6px;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  background: white;
+  color: #495057;
+  user-select: none;
+}
+
+.windowPillMinimized {
+  background: #e8f0fe;
+  border-color: #0f6cbd;
+  color: #0f6cbd;
+}
+
+.windowPillClosed {
+  background: #f8f9fa;
+  color: #adb5bd;
+  border-style: dashed;
+}
+
+.pillBtn {
+  background: none;
+  border: none;
+  padding: 1px 2px;
+  cursor: pointer;
+  color: #adb5bd;
+  display: flex;
+  align-items: center;
+  border-radius: 3px;
+  line-height: 1;
+  transition: color 0.1s, background 0.1s;
+}
+
+.pillBtn:hover {
+  color: #495057;
+  background: #e9ecef;
+}
+
+.pillBtnClose:hover {
+  color: #fa5252 !important;
+  background: #fff5f5 !important;
+}
+
+.pillDivider {
+  width: 1px;
+  height: 18px;
+  background: #dee2e6;
+  flex-shrink: 0;
+}
+
+/* Fix react-grid-layout resize handle visibility */
+:global(.react-resizable-handle) {
+  background-color: transparent;
+  border-bottom: 3px solid #0f6cbd;
+  border-right: 3px solid #0f6cbd;
+  border-radius: 0 0 4px 0;
+  width: 14px !important;
+  height: 14px !important;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+}
+
+:global(.react-resizable-handle:hover) {
+  opacity: 1;
+}
+
+:global(.react-grid-item) {
+  transition: none !important;
+}
+
+:global(.react-grid-item.react-grid-placeholder) {
+  background: #0f6cbd !important;
+  opacity: 0.15 !important;
+  border-radius: 8px;
+}

@@ -10,15 +10,15 @@ export interface LogoProps {
 export function Logo(props: LogoProps): JSX.Element {
   const overrideUrl = import.meta.env.MEDPLUM_LOGO_URL;
   if (overrideUrl) {
-    return <img src={overrideUrl} alt="Logo" style={{ maxHeight: props.size }} />;
+    return <img src={overrideUrl} alt="Solentra" style={{ maxHeight: props.size }} />;
   }
+  const fill = props.fill ?? '#0f6cbd';
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" style={{ width: props.size, height: props.size }}>
-      <title>Medplum Logo</title>
-      <path
-        fill={props.fill ?? '#9c36b5'}
-        d="M84 56c-3-15-15-24-23-28l5-10c8 2 14 8 20 14 0-12 1-16 5-21 8-9 13-9 41-9 0 7 1 18-3 24-7 9-16 7-41 8 5 8 7 14 8 22 36-24 74-7 74 39 0 42-40 83-80 83s-80-41-80-83c0-46 38-63 74-39Zm-3 43H65c-4 0-7 3-7 7v4c0 4 3 7 7 7h16v16c0 4 3 7 7 7h4c4 0 7-3 7-7v-16h16c4 0 7-3 7-7v-4c0-4-3-7-7-7H99V83c0-4-3-7-7-7h-4c-4 0-7 3-7 7z"
-      />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" style={{ width: props.size * 5, height: props.size }}>
+      <title>Solentra</title>
+      <circle cx="20" cy="20" r="18" fill={fill} />
+      <text x="20" y="26" textAnchor="middle" fill="white" fontSize="18" fontWeight="bold" fontFamily="Arial, sans-serif">S</text>
+      <text x="48" y="28" fill={fill} fontSize="22" fontWeight="700" fontFamily="Arial, sans-serif">solentra</text>
     </svg>
   );
 }

@@ -1,0 +1,91 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #f4f6f8;
+}
+
+.header {
+  background: white;
+  padding: 12px 20px;
+  border-bottom: 1px solid #e9ecef;
+  flex-shrink: 0;
+}
+
+.body {
+  flex: 1;
+  overflow: auto;
+}
+
+.noteContent {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px 24px;
+}
+
+/* Collapsible sections */
+.section {
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.sectionHeader {
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid #f1f3f5;
+  transition: background 0.1s;
+}
+
+.sectionHeader:hover {
+  background: #f8f9fa;
+}
+
+.sectionBody {
+  padding: 14px 16px;
+}
+
+/* MSE quick-click chips */
+.mseChip {
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1.5px solid #dee2e6;
+  background: white;
+  font-size: 11px;
+  font-weight: 500;
+  color: #495057;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+
+.mseChip:hover {
+  border-color: #0f6cbd;
+  color: #0f6cbd;
+  background: #f0f4ff;
+}
+
+.mseChipSelected {
+  border-color: #0f6cbd;
+  background: #0f6cbd;
+  color: white;
+}
+
+.mseChipSelected:hover {
+  background: #0a559e;
+  border-color: #0a559e;
+}
+
+.mseChipAlert {
+  border-color: #e03131;
+  background: #e03131;
+  color: white;
+}
+
+.mseChipAlert:hover {
+  background: #c92a2a;
+  border-color: #c92a2a;
+}

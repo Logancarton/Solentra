@@ -23,6 +23,9 @@ import { CreateResourcePage } from './CreateResourcePage';
 import { ErrorPage } from './ErrorPage';
 import { FormPage } from './FormPage';
 import { HomePage } from './HomePage';
+import { ProviderDashboard } from './solentra/ProviderDashboard';
+import { PatientChart } from './solentra/PatientChart';
+import { VisitNote } from './solentra/VisitNote';
 import { AssaysPage } from './lab/AssaysPage';
 import { PanelsPage } from './lab/PanelsPage';
 import { MfaPage } from './MfaPage';
@@ -100,6 +103,9 @@ export function AppRoutes(): JSX.Element {
         </Route>
         <Route path="/lab/assays" element={<AssaysPage />} />
         <Route path="/lab/panels" element={<PanelsPage />} />
+        <Route path="/schedule" element={<ProviderDashboard />} />
+        <Route path="/inbox" element={<ProviderDashboard />} />
+        <Route path="/scribe" element={<ProviderDashboard />} />
         <Route path="/:resourceType/new" element={<CreateResourcePage />}>
           <Route index element={<FormCreatePage />} />
           <Route path="form" element={<FormCreatePage />} />
@@ -142,7 +148,10 @@ export function AppRoutes(): JSX.Element {
           <Route path="export" element={<ExportPage />} />
         </Route>
         <Route path="/:resourceType" element={<HomePage />} />
-        <Route path="/" element={<HomePage />} />
+        <Route path="/dashboard" element={<ProviderDashboard />} />
+        <Route path="/chart/:patientSlug" element={<PatientChart />} />
+        <Route path="/chart/:patientSlug/note" element={<VisitNote />} />
+        <Route path="/" element={<ProviderDashboard />} />
       </Route>
     </Routes>
   );
