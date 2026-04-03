@@ -208,8 +208,23 @@ function buildMseNarrative(mse: Record<string, string>): string {
 
 // ── FHIR helpers ─────────────────────────────────────────────────────────────
 
+function escapeNarrativeText(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function xhtml(text: string): string {
-  return `<div xmlns="http://www.w3.org/1999/xhtml">${text.replace(/\n/g, '<br/>')}</div>`;
+  return `<div xmlns="http://www.w3.org/1999/xhtml">${escapeNarrativeText(text).replace(/\n/g, '<br/>')}</div>`;
+}
+
+function formatLocalDate(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
 }
 
 function buildComposition(
@@ -347,7 +362,7 @@ export function VisitNote(): JSX.Element {
     if (encounterRef.current) return encounterRef.current;
 
     const patRef = getReferenceString(patientResource);
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = formatLocalDate(new Date());
 
     const existing = await medplum.searchResources('Encounter', {
       patient: patRef,
@@ -493,7 +508,7 @@ export function VisitNote(): JSX.Element {
               Save Draft
             </Button>
             <Button size="sm" color="blue" leftSection={<IconSignature size={13} />}
-              onClick={() => { set({ status: 'signed' }); navigate(`/chart/${patientSlug}`); }}>
+              onClick={signNote} loading={saving}>
               Sign &amp; Close
             </Button>
           </Group>

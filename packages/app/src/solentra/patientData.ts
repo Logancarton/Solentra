@@ -176,8 +176,26 @@ function mapDocumentReference(document: DocumentReference): Patient['notes'][num
   };
 }
 
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
 function stripXhtml(div: string | undefined): string {
-  return (div ?? '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  const withLineBreaks = (div ?? '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(div|p|li|h[1-6])>/gi, '\n')
+    .replace(/<li>/gi, '- ');
+
+  return decodeHtmlEntities(withLineBreaks.replace(/<[^>]+>/g, ''))
+    .replace(/\r/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 function mapComposition(composition: Composition): Patient['notes'][number] {
@@ -329,6 +347,16 @@ function buildLivePatient(
   tasks: Task[] | undefined,
   compositions: Composition[] | undefined
 ): Patient {
+  const encounterIdsWithCompositions = new Set(
+    (compositions ?? [])
+      .map((composition) =>
+        composition.encounter?.reference?.startsWith('Encounter/')
+          ? composition.encounter.reference.split('/')[1]
+          : undefined
+      )
+      .filter((encounterId): encounterId is string => Boolean(encounterId))
+  );
+
   const meds = (medicationRequests ?? [])
     .slice()
     .sort((a, b) => new Date(b.authoredOn ?? '').getTime() - new Date(a.authoredOn ?? '').getTime())
@@ -339,6 +367,7 @@ function buildLivePatient(
     .map(mapDiagnosticReport);
   const encounterNotes = (encounters ?? [])
     .slice()
+    .filter((encounter) => !encounter.id || !encounterIdsWithCompositions.has(encounter.id))
     .sort((a, b) => new Date(b.period?.start ?? b.meta?.lastUpdated ?? '').getTime() - new Date(a.period?.start ?? a.meta?.lastUpdated ?? '').getTime())
     .map(mapEncounter);
   const documentNotes = (documents ?? [])
