@@ -28,13 +28,13 @@ import {
   IconTrash,
 } from '@tabler/icons-react';
 import { getReferenceString } from '@medplum/core';
-import type { Composition, Encounter } from '@medplum/fhirtypes';
+import type { Composition, Encounter, Observation } from '@medplum/fhirtypes';
 import { Loading, useMedplum } from '@medplum/react';
 import type { JSX, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { PATIENTS } from './PatientChart';
-import { useLivePatientRecord } from './patientData';
+import { stripXhtml, useLivePatientRecord } from './patientData';
 import classes from './VisitNote.module.css';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -68,6 +68,9 @@ interface NoteState {
   followUpWeeks: number | string;
   safetyPlan: boolean;
   labsOrdered: string;
+  // Assessment scores
+  phq9Score: number | string;
+  gad7Score: number | string;
   // Billing
   cptCode: string;
   timeSpent: number | string;
@@ -338,6 +341,8 @@ export function VisitNote(): JSX.Element {
     followUpWeeks: 4,
     safetyPlan: false,
     labsOrdered: '',
+    phq9Score: '',
+    gad7Score: '',
     cptCode: '90833',
     timeSpent: 30,
     complexity: 'Moderate',
@@ -355,6 +360,48 @@ export function VisitNote(): JSX.Element {
       set({ diagnoses: patient.diagnoses });
     }
   }, [note.diagnoses.length, patient]);
+
+  // On mount with a live patient: resume today's draft Composition if one exists
+  useEffect(() => {
+    if (!patientResource?.id) return;
+    const patRef = `Patient/${patientResource.id}`;
+    const todayStr = formatLocalDate(new Date());
+    medplum
+      .searchResources('Composition', {
+        subject: patRef,
+        date: `ge${todayStr}`,
+        status: 'preliminary',
+        _count: 1,
+        _sort: '-date',
+      })
+      .then((results) => {
+        if (results.length === 0 || !results[0].id) return;
+        const comp = results[0];
+        compositionId.current = comp.id as string;
+        if (comp.encounter?.reference) {
+          encounterRef.current = comp.encounter.reference;
+        }
+        const getSection = (title: string) => comp.section?.find((s) => s.title === title);
+        const cc = stripXhtml(getSection('Chief Complaint')?.text?.div);
+        const hpi = stripXhtml(getSection('Interval History')?.text?.div);
+        const rawAssessment = stripXhtml(getSection('Assessment')?.text?.div);
+        const rawPlan = stripXhtml(getSection('Plan')?.text?.div);
+        const diagLines = rawAssessment
+          .replace(/^Diagnoses:\s*/i, '')
+          .split('\n')
+          .map((l) => l.trim())
+          .filter(Boolean);
+        // Take plan text up to first "Medication changes:" line
+        const planNotes = rawPlan.split(/\nMedication changes:/i)[0].trim();
+        set({
+          ...(cc && cc !== '(not documented)' ? { chiefComplaint: cc } : {}),
+          ...(hpi && hpi !== '(not documented)' ? { intervalHistory: hpi } : {}),
+          ...(diagLines.length > 0 ? { diagnoses: diagLines } : {}),
+          ...(planNotes ? { planNotes } : {}),
+        });
+      })
+      .catch(() => { /* silent — demo mode or no draft */ });
+  }, [patientResource?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Find or create today's Encounter for this patient
   const getOrCreateEncounter = async (): Promise<string | null> => {
@@ -433,6 +480,27 @@ export function VisitNote(): JSX.Element {
       } else {
         await medplum.createResource<Composition>({ ...composition, status: 'final' });
       }
+      // Save PHQ-9 / GAD-7 as canonical FHIR Observations
+      const scoreEntries: { score: number; loinc: string; display: string }[] = [
+        ...(typeof note.phq9Score === 'number' ? [{ score: note.phq9Score, loinc: '44261-6', display: 'PHQ-9 total score' }] : []),
+        ...(typeof note.gad7Score === 'number' ? [{ score: note.gad7Score, loinc: '70274-6', display: 'GAD-7 total score' }] : []),
+      ];
+      await Promise.all(
+        scoreEntries.map((entry) =>
+          medplum.createResource<Observation>({
+            resourceType: 'Observation',
+            status: 'final',
+            code: {
+              coding: [{ system: 'http://loinc.org', code: entry.loinc, display: entry.display }],
+              text: entry.display,
+            },
+            subject: { reference: patRef },
+            encounter: { reference: encRef },
+            effectiveDateTime: new Date().toISOString(),
+            valueInteger: entry.score,
+          })
+        )
+      );
       // Mark encounter finished
       const encId = encRef.split('/')[1];
       const encounter = await medplum.readResource('Encounter', encId);
@@ -651,6 +719,31 @@ export function VisitNote(): JSX.Element {
                 <Button size="xs" variant="light" onClick={() => set({ diagnoses: [...note.diagnoses, ''] })}>
                   + Add Diagnosis
                 </Button>
+                {/* PHQ-9 / GAD-7 score capture — saved as FHIR Observations on sign */}
+                <Box mt={6} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <Box>
+                    <Text size="xs" c="dimmed" mb={2}>PHQ-9 Score (0–27)</Text>
+                    <NumberInput
+                      size="xs"
+                      placeholder="Enter if administered"
+                      min={0}
+                      max={27}
+                      value={note.phq9Score as number}
+                      onChange={(v) => set({ phq9Score: v })}
+                    />
+                  </Box>
+                  <Box>
+                    <Text size="xs" c="dimmed" mb={2}>GAD-7 Score (0–21)</Text>
+                    <NumberInput
+                      size="xs"
+                      placeholder="Enter if administered"
+                      min={0}
+                      max={21}
+                      value={note.gad7Score as number}
+                      onChange={(v) => set({ gad7Score: v })}
+                    />
+                  </Box>
+                </Box>
               </Stack>
             </Section>
 

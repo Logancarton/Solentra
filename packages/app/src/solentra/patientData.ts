@@ -14,6 +14,7 @@ import type {
   DocumentReference,
   Encounter,
   MedicationRequest,
+  Observation,
   Patient as FhirPatient,
   QuestionnaireResponse,
   Task,
@@ -186,7 +187,7 @@ function decodeHtmlEntities(value: string): string {
     .replace(/&#39;/g, "'");
 }
 
-function stripXhtml(div: string | undefined): string {
+export function stripXhtml(div: string | undefined): string {
   const withLineBreaks = (div ?? '')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/(div|p|li|h[1-6])>/gi, '\n')
@@ -309,6 +310,27 @@ function mapAssessment(response: QuestionnaireResponse): Patient['assessments'][
   };
 }
 
+// PHQ-9 total score: LOINC 44261-6 | GAD-7 total score: LOINC 70274-6
+const SCORE_LOINC: Record<string, string> = { '44261-6': 'PHQ-9', '70274-6': 'GAD-7' };
+
+function mapObservationToAssessment(obs: Observation): Patient['assessments'][number] | undefined {
+  const code = obs.code?.coding?.find((c) => SCORE_LOINC[c.code ?? ''])?.code;
+  const tool = code ? SCORE_LOINC[code] : undefined;
+  if (!tool) return undefined;
+  const score = obs.valueInteger ?? (typeof obs.valueQuantity?.value === 'number' ? Math.round(obs.valueQuantity.value) : undefined);
+  if (score === undefined) return undefined;
+  const maxScore = tool === 'PHQ-9' ? 27 : 21;
+  const { severity, color } = getAssessmentSeverity(tool, score);
+  return {
+    tool,
+    date: formatDate(obs.effectiveDateTime ?? obs.meta?.lastUpdated),
+    score,
+    maxScore,
+    severity,
+    color,
+  };
+}
+
 function buildFlags(
   labs: Patient['labs'],
   tasks: Task[] | undefined,
@@ -345,7 +367,8 @@ function buildLivePatient(
   documents: DocumentReference[] | undefined,
   questionnaireResponses: QuestionnaireResponse[] | undefined,
   tasks: Task[] | undefined,
-  compositions: Composition[] | undefined
+  compositions: Composition[] | undefined,
+  scoreObservations: Observation[] | undefined
 ): Patient {
   const encounterIdsWithCompositions = new Set(
     (compositions ?? [])
@@ -382,10 +405,17 @@ function buildLivePatient(
   const notes = [...compositionNotes, ...documentNotes, ...encounterNotes]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 20);
-  const assessments = (questionnaireResponses ?? [])
+  // Merge Observation-sourced scores (canonical) with QR-inferred scores, deduplicate by tool+date
+  const obsAssessments = (scoreObservations ?? [])
+    .map(mapObservationToAssessment)
+    .filter((a): a is Patient['assessments'][number] => Boolean(a));
+  const qrAssessments = (questionnaireResponses ?? [])
     .map(mapAssessment)
-    .filter((assessment): assessment is Patient['assessments'][number] => Boolean(assessment))
-    .slice(0, 20);
+    .filter((a): a is Patient['assessments'][number] => Boolean(a));
+  const obsKeys = new Set(obsAssessments.map((a) => `${a.tool}|${a.date}`));
+  const assessments = [...obsAssessments, ...qrAssessments.filter((a) => !obsKeys.has(`${a.tool}|${a.date}`))]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 40);
 
   return {
     name: getPatientName(patient),
@@ -467,6 +497,11 @@ export function useLivePatientRecord(patientKey: string | undefined): LivePatien
     patientRef ? { subject: patientRef, _count: 50, _sort: '-date' } : undefined,
     searchOptions
   );
+  const [scoreObservations, scoreObservationsLoading] = useSearchResources(
+    'Observation',
+    patientRef ? { subject: patientRef, code: '44261-6,70274-6', _count: 100, _sort: '-date' } : undefined,
+    searchOptions
+  );
 
   const patient = useMemo(
     () =>
@@ -482,7 +517,8 @@ export function useLivePatientRecord(patientKey: string | undefined): LivePatien
             documents,
             questionnaireResponses,
             tasks,
-            compositions
+            compositions,
+            scoreObservations
           )
         : undefined,
     [
@@ -496,6 +532,7 @@ export function useLivePatientRecord(patientKey: string | undefined): LivePatien
       medicationRequests,
       patientResource,
       questionnaireResponses,
+      scoreObservations,
       tasks,
     ]
   );
@@ -514,6 +551,7 @@ export function useLivePatientRecord(patientKey: string | undefined): LivePatien
       documentsLoading ||
       questionnaireResponsesLoading ||
       tasksLoading ||
-      compositionsLoading,
+      compositionsLoading ||
+      scoreObservationsLoading,
   };
 }

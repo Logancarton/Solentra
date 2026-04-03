@@ -574,6 +574,36 @@ function AssessmentsTab({ patient }: { patient: Patient }): JSX.Element {
               </Group>
               <Progress value={(latest.score / latest.maxScore) * 100} color={latest.color} size="md" radius="xl" />
             </Box>
+            {/* Sparkline trend */}
+            {history.length > 1 && (() => {
+              const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date));
+              const W = 320, H = 56, padX = 16, padY = 10;
+              const innerW = W - padX * 2, innerH = H - padY * 2;
+              const colorHex: Record<string, string> = { green: '#2f9e44', yellow: '#e67700', orange: '#e8590c', red: '#e03131', gray: '#868e96' };
+              const pts = sorted.map((a, i) => ({
+                x: padX + (sorted.length === 1 ? innerW / 2 : (i / (sorted.length - 1)) * innerW),
+                y: padY + innerH - (a.score / a.maxScore) * innerH,
+                a,
+              }));
+              return (
+                <Box mb="xs">
+                  <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible', display: 'block' }}>
+                    <polyline
+                      points={pts.map((p) => `${p.x},${p.y}`).join(' ')}
+                      fill="none"
+                      stroke="#dee2e6"
+                      strokeWidth={2}
+                    />
+                    {pts.map((p, i) => (
+                      <g key={i}>
+                        <circle cx={p.x} cy={p.y} r={4} fill={colorHex[p.a.color] ?? '#868e96'} />
+                        <text x={p.x} y={p.y - 7} textAnchor="middle" fontSize={9} fill="#868e96" fontFamily="sans-serif">{p.a.score}</text>
+                      </g>
+                    ))}
+                  </svg>
+                </Box>
+              );
+            })()}
             {/* History table */}
             {history.length > 1 && (
               <>
