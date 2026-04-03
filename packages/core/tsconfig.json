@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "types": ["jest", "vite/client"],
+    "lib": ["esnext", "dom"],
+    "rootDir": "src",
+    "outDir": "dist/types",
+    "noEmit": false,
+    "emitDeclarationOnly": true
+  },
+  "references": [{ "path": "../definitions" }, { "path": "../fhirtypes" }],
+  "include": ["src/**/*.ts", "src/**/*.json"]
+}
