@@ -1,0 +1,49 @@
+# Solentra — Cursor Rules
+
+## Project
+Solentra is an AI-first EHR built on Medplum v5.1.6 (FHIR, React, TypeScript, Mantine v8).
+Owner: Logan Carton, Psychiatric NP. Built for a real clinical practice.
+
+## Key Files
+- `packages/app/src/solentra/ProviderDashboard.tsx` — main dashboard (floating windows)
+- `packages/app/src/solentra/PatientChart.tsx` — patient chart with tabs
+- `packages/app/src/solentra/VisitNote.tsx` — visit note writer
+- `packages/app/src/solentra/clinicalAlerts.ts` — BPA rules engine
+- `packages/app/src/solentra/dashboardData.ts` — FHIR dashboard data hook
+- `packages/app/src/solentra/patientData.ts` — FHIR patient record hook
+- `packages/app/src/AppRoutes.tsx` — routes
+
+## Rules — Follow Every Time
+
+### No Bloat (highest priority)
+- NEVER create a new file if an existing file is the right place. Add to the existing file.
+- NEVER leave old code in place when replacing it. Delete the old implementation entirely — types, constants, functions, JSX, mock data, all of it.
+- NEVER append new code below old code to "override" it. Replace it.
+- NEVER duplicate type definitions across files. Define once, import everywhere.
+- NEVER create a helper or abstraction for a single use case.
+- If two files contain the same data or type, consolidate into one and delete the other.
+
+### Code Quality
+- No dead code. No commented-out blocks. No "old version" kept around.
+- No wrapper components that just pass props through.
+- No speculative features — only build what was asked.
+- No error handling for scenarios that can't happen.
+- No docstrings or comments on code you didn't write.
+
+### TypeScript
+- Run `npx tsc --noEmit -p packages/app/tsconfig.json` before finishing.
+- Fix all type errors before considering a task done.
+- Never use `any` — use proper types or `unknown`.
+
+### Git
+- Never push with TypeScript errors.
+- Never amend existing commits.
+- Write meaningful commit messages describing what changed and why.
+- Never commit .env files or secrets.
+
+### Stack-Specific
+- UI: Mantine v8 only. No other UI libraries.
+- Icons: @tabler/icons-react only.
+- Routing: react-router v6.
+- FHIR: use Medplum hooks (useSearchResources, useSearchOne) — don't fetch manually.
+- Demo data fallback pattern: live FHIR data when available, mock data otherwise. Keep both paths working.

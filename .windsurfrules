@@ -1,0 +1,36 @@
+# Solentra — Windsurf Rules
+
+## Project
+Solentra is an AI-first EHR built on Medplum v5.1.6 (FHIR, React, TypeScript, Mantine v8).
+Owner: Logan Carton, Psychiatric NP. Built for a real clinical practice — HIPAA applies.
+
+## Key Files
+- `packages/app/src/solentra/ProviderDashboard.tsx` — main dashboard
+- `packages/app/src/solentra/PatientChart.tsx` — patient chart
+- `packages/app/src/solentra/VisitNote.tsx` — visit note writer
+- `packages/app/src/solentra/clinicalAlerts.ts` — alerts engine
+- `packages/app/src/solentra/dashboardData.ts` — FHIR dashboard hook
+- `packages/app/src/solentra/patientData.ts` — FHIR patient hook
+- `packages/app/src/AppRoutes.tsx` — routes
+
+## Rules
+
+### No Bloat (critical)
+- Never create a new file when an existing file is the right place.
+- When replacing a feature, delete the old code entirely. No dead code, no overrides stacked below old code.
+- No duplicate types or data across files — one definition, imported everywhere.
+- No abstractions for single uses. No passthrough wrappers.
+
+### TypeScript
+- No `any`. Run `npx tsc --noEmit -p packages/app/tsconfig.json` and fix all errors before finishing.
+
+### Stack
+- UI: Mantine v8 only.
+- Icons: @tabler/icons-react only.
+- FHIR: Medplum hooks only (`useSearchResources`, `useSearchOne`).
+- Always keep demo data fallback working alongside live FHIR data.
+
+### Git
+- No commits with TypeScript errors.
+- Meaningful commit messages.
+- Never commit secrets or .env files.
