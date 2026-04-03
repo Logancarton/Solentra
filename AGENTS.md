@@ -23,10 +23,39 @@ packages/
   react/                  ← Medplum React components (do not modify unless instructed)
 ```
 
+## Canonical FHIR Resource Map — Do Not Deviate
+| Concern | FHIR Resource |
+|---|---|
+| Scheduled slot | `Appointment` |
+| Actual visit | `Encounter` |
+| Clinical note | `Composition` (draft → signed, tied to Encounter) |
+| Patient assessments | `Questionnaire` / `QuestionnaireResponse` |
+| Extracted scores (PHQ-9, GAD-7) | `Observation` |
+| Workflow tracking | `Task` |
+| Billing output | `Claim` / `ChargeItem` |
+| Medications | `MedicationRequest` |
+| Labs | `DiagnosticReport` / `Observation` |
+
+**Critical:** `Appointment` ≠ `Encounter`. Appointment is the scheduled slot. Encounter is the visit anchor — notes, billing, and orders attach to Encounter.
+**Notes:** Always use `Composition`, never free-text blobs. Draft/final signing logic required.
+
+## Current Phase: Phase 1 — EHR Functional
+Goal: Run a full clinical week without opening Tebra.
+
+**Building now (priority order):**
+1. Live patient/schedule/visit flow end to end
+2. Notes save as `Composition` tied to `Encounter` with draft/sign logic
+3. PHQ-9/GAD-7 as `QuestionnaireResponse` → `Observation` (real trending)
+4. DoseSpot wired for actual prescribing
+5. Billing: manual CPT + exportable CMS-1500 via `Claim/$export`
+
+**Not building yet:** AI prompting, scribe, chat window, behavior analysis.
+
 ## Before You Start
 1. Run `npx tsc --noEmit -p packages/app/tsconfig.json` — know the baseline error state.
 2. Read the relevant existing files before writing any code. Understand what's already there.
 3. Never assume a file needs to be created — check if the right file already exists.
+4. Confirm what phase we are in. Do not build Phase 3/4/5 features during Phase 1.
 
 ## Coding Rules
 
