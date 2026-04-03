@@ -7,6 +7,7 @@ import {
 } from '@medplum/core';
 import type {
   AllergyIntolerance,
+  Composition,
   Condition,
   Coverage,
   DiagnosticReport,
@@ -175,6 +176,34 @@ function mapDocumentReference(document: DocumentReference): Patient['notes'][num
   };
 }
 
+function stripXhtml(div: string | undefined): string {
+  return (div ?? '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function mapComposition(composition: Composition): Patient['notes'][number] {
+  const planSection = composition.section?.find((s) => s.title === 'Plan');
+  const assessmentSection = composition.section?.find((s) => s.title === 'Assessment');
+  const hpiSection = composition.section?.find((s) => s.title === 'Interval History' || s.title === 'Chief Complaint');
+
+  const summary = stripXhtml(hpiSection?.text?.div) || composition.title || 'Clinical note';
+  const plan = planSection ? stripXhtml(planSection.text?.div).split('\n').filter(Boolean) : [];
+  const diagnoses = assessmentSection
+    ? stripXhtml(assessmentSection.text?.div)
+        .replace(/^Diagnoses:\s*/i, '')
+        .split('\n')
+        .filter(Boolean)
+    : [];
+
+  return {
+    date: formatDate(composition.date ?? composition.meta?.lastUpdated),
+    type: `${composition.type?.text ?? 'Clinical Note'}${composition.status === 'final' ? ' ✓' : ' (draft)'}`,
+    summary,
+    provider: composition.author?.[0]?.display || 'Unknown provider',
+    diagnoses,
+    plan,
+  };
+}
+
 function inferAssessmentTool(response: QuestionnaireResponse): { tool: string; maxScore: number } | undefined {
   const questionnaire = response.questionnaire?.toLowerCase() ?? '';
   if (questionnaire.includes('phq')) {
@@ -297,7 +326,8 @@ function buildLivePatient(
   encounters: Encounter[] | undefined,
   documents: DocumentReference[] | undefined,
   questionnaireResponses: QuestionnaireResponse[] | undefined,
-  tasks: Task[] | undefined
+  tasks: Task[] | undefined,
+  compositions: Composition[] | undefined
 ): Patient {
   const meds = (medicationRequests ?? [])
     .slice()
@@ -315,7 +345,12 @@ function buildLivePatient(
     .slice()
     .sort((a, b) => new Date(b.date ?? b.meta?.lastUpdated ?? '').getTime() - new Date(a.date ?? a.meta?.lastUpdated ?? '').getTime())
     .map(mapDocumentReference);
-  const notes = [...documentNotes, ...encounterNotes]
+  // Compositions are the canonical note — shown first, then fall back to encounters/documents
+  const compositionNotes = (compositions ?? [])
+    .slice()
+    .sort((a, b) => new Date(b.date ?? b.meta?.lastUpdated ?? '').getTime() - new Date(a.date ?? a.meta?.lastUpdated ?? '').getTime())
+    .map(mapComposition);
+  const notes = [...compositionNotes, ...documentNotes, ...encounterNotes]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 20);
   const assessments = (questionnaireResponses ?? [])
@@ -398,6 +433,11 @@ export function useLivePatientRecord(patientKey: string | undefined): LivePatien
     patientRef ? { for: patientRef, _count: 20, _sort: '-_lastUpdated' } : undefined,
     searchOptions
   );
+  const [compositions, compositionsLoading] = useSearchResources(
+    'Composition',
+    patientRef ? { subject: patientRef, _count: 50, _sort: '-date' } : undefined,
+    searchOptions
+  );
 
   const patient = useMemo(
     () =>
@@ -412,11 +452,13 @@ export function useLivePatientRecord(patientKey: string | undefined): LivePatien
             encounters,
             documents,
             questionnaireResponses,
-            tasks
+            tasks,
+            compositions
           )
         : undefined,
     [
       allergies,
+      compositions,
       conditions,
       coverages,
       diagnosticReports,
@@ -442,6 +484,7 @@ export function useLivePatientRecord(patientKey: string | undefined): LivePatien
       encountersLoading ||
       documentsLoading ||
       questionnaireResponsesLoading ||
-      tasksLoading,
+      tasksLoading ||
+      compositionsLoading,
   };
 }

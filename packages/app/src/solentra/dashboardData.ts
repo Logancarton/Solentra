@@ -9,7 +9,7 @@ import type {
   Task,
 } from '@medplum/fhirtypes';
 import { useSearchResources } from '@medplum/react';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { PATIENTS, nameToSlug } from './PatientChart';
 
 export interface DashboardAppointment {
@@ -483,7 +483,9 @@ function buildAiGreeting(todayAppointments: DashboardAppointment[], inbox: Dashb
 }
 
 export function useSolentraDashboardData(): DashboardData {
-  const now = new Date();
+  // Stable reference — date calculated once on mount, not every render
+  const nowRef = useRef(new Date());
+  const now = nowRef.current;
   const todayStart = startOfDay(now);
   const monthStart = getMonthStart(now);
   const nextMonthStart = getNextMonthStart(now);

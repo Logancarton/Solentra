@@ -27,9 +27,11 @@ import {
   IconSignature,
   IconTrash,
 } from '@tabler/icons-react';
-import { Loading } from '@medplum/react';
+import { getReferenceString } from '@medplum/core';
+import type { Composition, Encounter } from '@medplum/fhirtypes';
+import { Loading, useMedplum } from '@medplum/react';
 import type { JSX, ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { PATIENTS } from './PatientChart';
 import { useLivePatientRecord } from './patientData';
@@ -204,12 +206,100 @@ function buildMseNarrative(mse: Record<string, string>): string {
 
 // ── Main VisitNote component ──────────────────────────────────────────────────
 
+// ── FHIR helpers ─────────────────────────────────────────────────────────────
+
+function xhtml(text: string): string {
+  return `<div xmlns="http://www.w3.org/1999/xhtml">${text.replace(/\n/g, '<br/>')}</div>`;
+}
+
+function buildComposition(
+  note: NoteState,
+  patientRef: string,
+  encounterRef: string,
+  existingId?: string
+): Composition {
+  const templateLabel = TEMPLATE_LABELS[note.template];
+  const sections: Composition['section'] = [
+    { title: 'Chief Complaint',   text: { status: 'generated', div: xhtml(note.chiefComplaint   || '(not documented)') } },
+    { title: 'Interval History',  text: { status: 'generated', div: xhtml(note.intervalHistory   || '(not documented)') } },
+    {
+      title: 'Symptoms',
+      text: {
+        status: 'generated',
+        div: xhtml(
+          `Mood: ${note.moodRating || 'not rated'}/10 | Sleep: ${note.sleepHours || '?'} hrs (${note.sleepQuality || '?'}) | ` +
+          `Appetite: ${note.appetite || '?'} | Energy: ${note.energy || '?'} | Concentration: ${note.concentration || '?'} | ` +
+          `Anxiety: ${note.anxiety || '?'} | SI/HI: ${note.siHi}${note.siDetail ? ' — ' + note.siDetail : ''}`
+        ),
+      },
+    },
+    { title: 'Mental Status Exam', text: { status: 'generated', div: xhtml(buildMseNarrative(note.mse) || '(not documented)') } },
+    {
+      title: 'Assessment',
+      text: {
+        status: 'generated',
+        div: xhtml('Diagnoses:\n' + (note.diagnoses.length > 0 ? note.diagnoses.join('\n') : '(none listed)')),
+      },
+    },
+    {
+      title: 'Plan',
+      text: {
+        status: 'generated',
+        div: xhtml(
+          [
+            note.planNotes,
+            note.medChanges.length > 0
+              ? 'Medication changes:\n' + note.medChanges.map((m) => `${m.change} ${m.medication} ${m.dose} — ${m.reason}`).join('\n')
+              : '',
+            note.labsOrdered ? `Labs ordered: ${note.labsOrdered}` : '',
+            note.safetyPlan ? 'Safety plan reviewed and updated.' : '',
+            `Follow up in ${note.followUpWeeks} weeks.`,
+          ]
+            .filter(Boolean)
+            .join('\n')
+        ),
+      },
+    },
+    {
+      title: 'Billing',
+      text: {
+        status: 'generated',
+        div: xhtml(`CPT: ${note.cptCode} | Time: ${note.timeSpent} min | Complexity: ${note.complexity}`),
+      },
+    },
+  ];
+
+  return {
+    ...(existingId ? { id: existingId } : {}),
+    resourceType: 'Composition',
+    status: note.status === 'signed' ? 'final' : 'preliminary',
+    type: {
+      coding: [{ system: 'http://loinc.org', code: '11488-4', display: 'Consult note' }],
+      text: templateLabel,
+    },
+    subject: { reference: patientRef },
+    encounter: { reference: encounterRef },
+    date: new Date().toISOString(),
+    author: [{ display: 'Dr. Logan Carton, NP' }],
+    title: `${templateLabel} — ${new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}`,
+    section: sections,
+  };
+}
+
 export function VisitNote(): JSX.Element {
   const { patientSlug } = useParams<{ patientSlug: string }>();
   const navigate = useNavigate();
+  const medplum = useMedplum();
   const mockPatient = patientSlug ? PATIENTS[patientSlug] : null;
-  const { patient: livePatient, loading } = useLivePatientRecord(mockPatient ? undefined : patientSlug);
+  const { patient: livePatient, loading, patientResource } = useLivePatientRecord(mockPatient ? undefined : patientSlug);
   const patient = livePatient ?? mockPatient;
+
+  // FHIR Encounter + Composition refs — survive re-renders without triggering them
+  const encounterRef = useRef<string | null>(null);
+  const compositionId = useRef<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const isFhirPatient = Boolean(patientResource?.id);
 
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
 
@@ -250,6 +340,96 @@ export function VisitNote(): JSX.Element {
       set({ diagnoses: patient.diagnoses });
     }
   }, [note.diagnoses.length, patient]);
+
+  // Find or create today's Encounter for this patient
+  const getOrCreateEncounter = async (): Promise<string | null> => {
+    if (!patientResource?.id) return null;
+    if (encounterRef.current) return encounterRef.current;
+
+    const patRef = getReferenceString(patientResource);
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const existing = await medplum.searchResources('Encounter', {
+      patient: patRef,
+      date: `ge${todayStr}`,
+      status: 'in-progress',
+      _count: 1,
+      _sort: '-date',
+    });
+
+    let ref: string;
+    if (existing.length > 0 && existing[0].id) {
+      ref = getReferenceString(existing[0] as Encounter & { id: string });
+    } else {
+      const enc = await medplum.createResource<Encounter>({
+        resourceType: 'Encounter',
+        status: 'in-progress',
+        class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB', display: 'ambulatory' },
+        type: [{ text: TEMPLATE_LABELS[note.template] }],
+        subject: { reference: patRef },
+        period: { start: new Date().toISOString() },
+      });
+      ref = getReferenceString(enc as Encounter & { id: string });
+    }
+
+    encounterRef.current = ref;
+    return ref;
+  };
+
+  const saveDraft = async (): Promise<void> => {
+    if (!patientResource?.id) return; // demo mode — no-op
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const encRef = await getOrCreateEncounter();
+      if (!encRef || !patientResource?.id) return;
+      const patRef = `Patient/${patientResource.id}`;
+      const composition = buildComposition({ ...note, status: 'draft' }, patRef, encRef, compositionId.current ?? undefined);
+      if (compositionId.current) {
+        await medplum.updateResource({ ...composition, id: compositionId.current });
+      } else {
+        const saved = await medplum.createResource<Composition>(composition);
+        compositionId.current = saved.id ?? null;
+      }
+      set({ status: 'draft' });
+    } catch (err) {
+      setSaveError('Save failed — check connection.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const signNote = async (): Promise<void> => {
+    if (!patientResource?.id) {
+      // Demo mode — just navigate back
+      set({ status: 'signed' });
+      navigate(`/chart/${patientSlug}`);
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const encRef = await getOrCreateEncounter();
+      if (!encRef || !patientResource?.id) return;
+      const patRef = `Patient/${patientResource.id}`;
+      const composition = buildComposition({ ...note, status: 'signed' }, patRef, encRef, compositionId.current ?? undefined);
+      if (compositionId.current) {
+        await medplum.updateResource({ ...composition, id: compositionId.current, status: 'final' });
+      } else {
+        await medplum.createResource<Composition>({ ...composition, status: 'final' });
+      }
+      // Mark encounter finished
+      const encId = encRef.split('/')[1];
+      const encounter = await medplum.readResource('Encounter', encId);
+      await medplum.updateResource<Encounter>({ ...encounter, status: 'finished', period: { ...encounter.period, end: new Date().toISOString() } });
+      set({ status: 'signed' });
+      navigate(`/chart/${patientSlug}`);
+    } catch (err) {
+      setSaveError('Sign failed — check connection.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // AI stub fills
   const aiFill = (field: keyof NoteState): void => {
@@ -309,7 +489,7 @@ export function VisitNote(): JSX.Element {
               Scribe
             </Button>
             <Button size="sm" variant="light" leftSection={<IconDeviceFloppy size={13} />}
-              onClick={() => set({ status: 'draft' })}>
+              onClick={saveDraft} loading={saving}>
               Save Draft
             </Button>
             <Button size="sm" color="blue" leftSection={<IconSignature size={13} />}
@@ -595,12 +775,16 @@ export function VisitNote(): JSX.Element {
                   <Text size="sm" fw={600}>{today}</Text>
                 </Box>
                 <Group gap="sm">
+                  {saveError && <Text size="xs" c="red">{saveError}</Text>}
+                  {!isFhirPatient && (
+                    <Text size="xs" c="dimmed">Demo mode — notes not saved to FHIR</Text>
+                  )}
                   <Button variant="light" leftSection={<IconDeviceFloppy size={14} />}
-                    onClick={() => set({ status: 'draft' })}>
+                    onClick={saveDraft} loading={saving}>
                     Save Draft
                   </Button>
                   <Button color="blue" leftSection={<IconSignature size={14} />}
-                    onClick={() => { set({ status: 'signed' }); navigate(`/chart/${patientSlug}`); }}>
+                    onClick={signNote} loading={saving}>
                     Sign &amp; Lock Note
                   </Button>
                 </Group>
