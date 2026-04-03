@@ -44,11 +44,13 @@ import {
   IconPhone,
   IconReceipt,
   IconRefresh,
+  IconSend,
   IconShieldCheck,
   IconTrendingUp,
   IconUser,
 } from '@tabler/icons-react';
-import { Loading } from '@medplum/react';
+import type { Patient as FhirPatient, Task } from '@medplum/fhirtypes';
+import { Loading, useMedplum } from '@medplum/react';
 import type { JSX } from 'react';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
@@ -541,17 +543,73 @@ function LabsTab({ patient }: { patient: Patient }): JSX.Element {
 
 // ── Assessments Tab ───────────────────────────────────────────────────────────
 
-function AssessmentsTab({ patient }: { patient: Patient }): JSX.Element {
+function AssessmentsTab({ patient, patientResource }: { patient: Patient; patientResource?: FhirPatient }): JSX.Element {
+  const medplum = useMedplum();
+  const [sending, setSending] = useState<Record<string, boolean>>({});
+  const [sent, setSent] = useState<Record<string, boolean>>({});
+
+  const sendAssessment = async (tool: string, loinc: string): Promise<void> => {
+    if (!patientResource?.id) return;
+    setSending((s) => ({ ...s, [tool]: true }));
+    try {
+      await medplum.createResource<Task>({
+        resourceType: 'Task',
+        status: 'requested',
+        intent: 'order',
+        code: {
+          coding: [{ system: 'http://loinc.org', code: loinc, display: `${tool} total score` }],
+          text: `${tool} questionnaire`,
+        },
+        description: `${tool} patient self-report questionnaire`,
+        for: { reference: `Patient/${patientResource.id}` },
+        authoredOn: new Date().toISOString(),
+        requester: { display: 'Dr. Logan Carton, NP' },
+      });
+      setSent((s) => ({ ...s, [tool]: true }));
+    } catch {
+      // swallow — demo fallback shows nothing
+    } finally {
+      setSending((s) => ({ ...s, [tool]: false }));
+    }
+  };
+
+  const SEND_TOOLS: { tool: string; loinc: string }[] = [
+    { tool: 'PHQ-9', loinc: '44261-6' },
+    { tool: 'GAD-7', loinc: '70274-6' },
+    { tool: 'C-SSRS', loinc: '89204-2' },
+  ];
+
   const tools = [...new Set(patient.assessments.map((a) => a.tool))];
-  if (tools.length === 0) {
-    return (
-      <Box p="xl" style={{ textAlign: 'center' }}>
-        <Text c="dimmed" size="sm">No assessments on file.</Text>
-      </Box>
-    );
-  }
   return (
     <Stack gap="lg" p="md">
+      {/* Send assessment to patient */}
+      <Card withBorder p="sm">
+        <Group justify="space-between" mb={8}>
+          <Text size="sm" fw={700}>Send Assessment to Patient</Text>
+          {!patientResource && <Badge size="xs" color="gray" variant="light">Demo — not saved</Badge>}
+        </Group>
+        <Group gap="xs">
+          {SEND_TOOLS.map(({ tool, loinc }) => (
+            <Button
+              key={tool}
+              size="xs"
+              variant={sent[tool] ? 'filled' : 'light'}
+              color={sent[tool] ? 'green' : 'blue'}
+              leftSection={sent[tool] ? <IconCheck size={12} /> : <IconSend size={12} />}
+              loading={sending[tool]}
+              disabled={sent[tool]}
+              onClick={() => sendAssessment(tool, loinc)}
+            >
+              {sent[tool] ? `${tool} Sent` : `Send ${tool}`}
+            </Button>
+          ))}
+        </Group>
+      </Card>
+      {tools.length === 0 && (
+        <Box p="xl" style={{ textAlign: 'center' }}>
+          <Text c="dimmed" size="sm">No assessments on file.</Text>
+        </Box>
+      )}
       {tools.map((tool) => {
         const history = patient.assessments
           .filter((a) => a.tool === tool)
@@ -953,7 +1011,7 @@ export function PatientChart(): JSX.Element {
   const [alertsOpen, setAlertsOpen] = useState(true);
 
   const mockPatient = patientSlug ? getPatient(patientSlug) : null;
-  const { patient: livePatient, loading } = useLivePatientRecord(mockPatient ? undefined : patientSlug);
+  const { patient: livePatient, loading, patientResource } = useLivePatientRecord(mockPatient ? undefined : patientSlug);
   const patient = livePatient ?? mockPatient;
 
   if (loading && !patient) {
@@ -1130,7 +1188,7 @@ export function PatientChart(): JSX.Element {
             <ScrollArea h="100%"><LabsTab patient={patient} /></ScrollArea>
           </Tabs.Panel>
           <Tabs.Panel value="assessments">
-            <ScrollArea h="100%"><AssessmentsTab patient={patient} /></ScrollArea>
+            <ScrollArea h="100%"><AssessmentsTab patient={patient} patientResource={patientResource} /></ScrollArea>
           </Tabs.Panel>
           <Tabs.Panel value="priorauth">
             <ScrollArea h="100%"><PriorAuthTab patient={patient} /></ScrollArea>

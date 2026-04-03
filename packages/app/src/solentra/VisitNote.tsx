@@ -28,7 +28,7 @@ import {
   IconTrash,
 } from '@tabler/icons-react';
 import { getReferenceString } from '@medplum/core';
-import type { Composition, Encounter, Observation } from '@medplum/fhirtypes';
+import type { Claim, Composition, Encounter, Observation } from '@medplum/fhirtypes';
 import { Loading, useMedplum } from '@medplum/react';
 import type { JSX, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
@@ -501,6 +501,36 @@ export function VisitNote(): JSX.Element {
           })
         )
       );
+      // Create Claim for this visit (unbilled — status 'active')
+      const cptLabel = CPT_OPTIONS.find((o) => o.value === note.cptCode)?.label.split('—')[1]?.trim() ?? note.cptCode;
+      await medplum.createResource<Claim>({
+        resourceType: 'Claim',
+        status: 'active',
+        type: {
+          coding: [{ system: 'http://terminology.hl7.org/CodeSystem/claim-type', code: 'professional' }],
+        },
+        use: 'claim',
+        patient: { reference: patRef },
+        created: new Date().toISOString(),
+        provider: { display: 'Dr. Logan Carton, NP' },
+        priority: { coding: [{ code: 'normal' }] },
+        insurance: [{ sequence: 1, focal: true, coverage: { display: patient?.insurance ?? 'Unknown' } }],
+        diagnosis: note.diagnoses
+          .filter(Boolean)
+          .map((dx, i) => ({ sequence: i + 1, diagnosisCodeableConcept: { text: dx } })),
+        item: [
+          {
+            sequence: 1,
+            productOrService: {
+              coding: [{ system: 'http://www.ama-assn.org/go/cpt', code: note.cptCode }],
+              text: cptLabel,
+            },
+            servicedDate: formatLocalDate(new Date()),
+            encounter: [{ reference: encRef }],
+            quantity: { value: 1 },
+          },
+        ],
+      });
       // Mark encounter finished
       const encId = encRef.split('/')[1];
       const encounter = await medplum.readResource('Encounter', encId);
