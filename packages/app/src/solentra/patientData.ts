@@ -7,6 +7,7 @@ import {
 } from '@medplum/core';
 import type {
   AllergyIntolerance,
+  Appointment,
   Composition,
   Condition,
   Coverage,
@@ -37,6 +38,12 @@ function formatDate(dateString: string | undefined): string {
   return Number.isNaN(date.getTime())
     ? dateString
     : date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+}
+
+function formatSearchDate(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
 }
 
 function getAgeYears(birthDate: string | undefined): number {
@@ -331,6 +338,213 @@ function mapObservationToAssessment(obs: Observation): Patient['assessments'][nu
   };
 }
 
+function getObservationDate(observation: Observation): string | undefined {
+  return observation.effectiveDateTime ?? observation.issued ?? observation.meta?.lastUpdated;
+}
+
+function getObservationTime(observation: Observation): number {
+  const value = getObservationDate(observation);
+  if (!value) {
+    return 0;
+  }
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function hasObservationCode(observation: Observation, code: string): boolean {
+  return observation.code?.coding?.some((coding) => coding.code === code) ?? false;
+}
+
+function getObservationNumericValue(observation: Observation): number | undefined {
+  if (typeof observation.valueInteger === 'number') {
+    return observation.valueInteger;
+  }
+  if (typeof observation.valueQuantity?.value === 'number') {
+    return observation.valueQuantity.value;
+  }
+  return undefined;
+}
+
+function formatNumericValue(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function normalizeUnit(unit: string | undefined): string {
+  if (!unit) {
+    return '';
+  }
+  const normalized = unit.trim().toLowerCase();
+  if (normalized === '[lb_av]' || normalized === 'lbs') {
+    return 'lb';
+  }
+  if (normalized === '/min' || normalized === 'beats/minute') {
+    return 'bpm';
+  }
+  if (normalized === 'kg/m2' || normalized === 'kg/m^2' || normalized === '{ratio}' || normalized === '1') {
+    return '';
+  }
+  if (normalized === 'mm[hg]' || normalized === 'mmhg') {
+    return 'mmHg';
+  }
+  return unit;
+}
+
+function formatObservationQuantity(observation: Observation): string | undefined {
+  const value = getObservationNumericValue(observation);
+  if (value === undefined) {
+    return undefined;
+  }
+  const unit = normalizeUnit(observation.valueQuantity?.unit ?? observation.valueQuantity?.code);
+  return unit ? `${formatNumericValue(value)} ${unit}` : formatNumericValue(value);
+}
+
+function extractBloodPressure(observation: Observation): { systolic?: string; diastolic?: string } {
+  const result: { systolic?: string; diastolic?: string } = {};
+
+  for (const component of observation.component ?? []) {
+    const code = component.code?.coding?.find((coding) => coding.code)?.code;
+    const value = component.valueQuantity?.value;
+    if (typeof value !== 'number') {
+      continue;
+    }
+    if (code === '8480-6') {
+      result.systolic = formatNumericValue(value);
+    }
+    if (code === '8462-4') {
+      result.diastolic = formatNumericValue(value);
+    }
+  }
+
+  if (!result.systolic && hasObservationCode(observation, '8480-6')) {
+    const value = getObservationNumericValue(observation);
+    if (value !== undefined) {
+      result.systolic = formatNumericValue(value);
+    }
+  }
+
+  if (!result.diastolic && hasObservationCode(observation, '8462-4')) {
+    const value = getObservationNumericValue(observation);
+    if (value !== undefined) {
+      result.diastolic = formatNumericValue(value);
+    }
+  }
+
+  return result;
+}
+
+function mapVitalObservations(observations: Observation[] | undefined): Patient['vitals'] {
+  type VitalAccumulator = {
+    date: string;
+    sortTime: number;
+    weight?: string;
+    bmi?: string;
+    hr?: string;
+    systolic?: string;
+    diastolic?: string;
+  };
+
+  const byDate = new Map<string, VitalAccumulator>();
+
+  for (const observation of [...(observations ?? [])].sort((a, b) => getObservationTime(b) - getObservationTime(a))) {
+    const observationDate = getObservationDate(observation);
+    if (!observationDate) {
+      continue;
+    }
+
+    const dateLabel = formatDate(observationDate);
+    const sortTime = getObservationTime(observation);
+    const existing = byDate.get(dateLabel) ?? { date: dateLabel, sortTime };
+    existing.sortTime = Math.max(existing.sortTime, sortTime);
+
+    if (hasObservationCode(observation, '29463-7')) {
+      existing.weight = existing.weight ?? formatObservationQuantity(observation);
+    }
+
+    if (hasObservationCode(observation, '39156-5')) {
+      const bmiValue = getObservationNumericValue(observation);
+      if (bmiValue !== undefined && !existing.bmi) {
+        existing.bmi = formatNumericValue(bmiValue);
+      }
+    }
+
+    if (hasObservationCode(observation, '8867-4')) {
+      const hrValue = getObservationNumericValue(observation);
+      if (hrValue !== undefined && !existing.hr) {
+        existing.hr = `${formatNumericValue(hrValue)} bpm`;
+      }
+    }
+
+    if (
+      hasObservationCode(observation, '85354-9') ||
+      hasObservationCode(observation, '8480-6') ||
+      hasObservationCode(observation, '8462-4')
+    ) {
+      const { systolic, diastolic } = extractBloodPressure(observation);
+      existing.systolic = existing.systolic ?? systolic;
+      existing.diastolic = existing.diastolic ?? diastolic;
+    }
+
+    byDate.set(dateLabel, existing);
+  }
+
+  return [...byDate.values()]
+    .sort((a, b) => b.sortTime - a.sortTime)
+    .map((entry) => ({
+      date: entry.date,
+      weight: entry.weight,
+      bmi: entry.bmi,
+      bp:
+        entry.systolic && entry.diastolic
+          ? `${entry.systolic}/${entry.diastolic}`
+          : entry.systolic ?? entry.diastolic,
+      hr: entry.hr,
+    }))
+    .filter((entry) => Boolean(entry.weight || entry.bmi || entry.bp || entry.hr))
+    .slice(0, 12);
+}
+
+function getAppointmentStart(appointment: Appointment): string | undefined {
+  return appointment.start ?? appointment.requestedPeriod?.[0]?.start;
+}
+
+function getAppointmentLabel(appointment: Appointment): string | undefined {
+  return (
+    appointment.participant?.find((participant) => participant.actor?.reference && !participant.actor.reference.startsWith('Patient/'))
+      ?.actor?.display ||
+    appointment.serviceType?.[0]?.text ||
+    appointment.appointmentType?.text ||
+    appointment.description
+  );
+}
+
+function getNextAppointment(appointments: Appointment[] | undefined): string | undefined {
+  const now = Date.now();
+  const nextAppointment = [...(appointments ?? [])]
+    .filter((appointment) => !['cancelled', 'noshow', 'entered-in-error', 'fulfilled'].includes(appointment.status ?? ''))
+    .map((appointment) => ({ appointment, start: getAppointmentStart(appointment) }))
+    .filter((entry): entry is { appointment: Appointment; start: string } => Boolean(entry.start))
+    .filter((entry) => {
+      const time = new Date(entry.start).getTime();
+      return !Number.isNaN(time) && time >= now;
+    })
+    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())[0];
+
+  if (!nextAppointment) {
+    return undefined;
+  }
+
+  const date = new Date(nextAppointment.start);
+  if (Number.isNaN(date.getTime())) {
+    return nextAppointment.start;
+  }
+
+  const dateLabel = date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+  const timeLabel = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const label = getAppointmentLabel(nextAppointment.appointment);
+  return label ? `${dateLabel} | ${timeLabel} | ${label}` : `${dateLabel} | ${timeLabel}`;
+}
+
 function buildFlags(
   labs: Patient['labs'],
   tasks: Task[] | undefined,
@@ -368,7 +582,9 @@ function buildLivePatient(
   questionnaireResponses: QuestionnaireResponse[] | undefined,
   tasks: Task[] | undefined,
   compositions: Composition[] | undefined,
-  scoreObservations: Observation[] | undefined
+  scoreObservations: Observation[] | undefined,
+  vitalObservations: Observation[] | undefined,
+  appointments: Appointment[] | undefined
 ): Patient {
   const encounterIdsWithCompositions = new Set(
     (compositions ?? [])
@@ -433,9 +649,17 @@ function buildLivePatient(
     labs,
     notes,
     assessments,
+    vitals: mapVitalObservations(vitalObservations),
+    medTrials: [],
+    pmh: [],
+    psh: [],
+    psychiatricHistory: [],
+    substanceUse: [],
     socialHistory: [],
     familyHistory: [],
     hospitalizations: [],
+    safetyPlanOnFile: false,
+    nextAppointment: getNextAppointment(appointments),
   };
 }
 
@@ -446,6 +670,7 @@ export function useLivePatientRecord(patientKey: string | undefined): LivePatien
 
   const patientRef = patientResource ? getReferenceString(patientResource) : undefined;
   const searchOptions = { enabled: Boolean(patientRef) };
+  const todaySearchDate = useMemo(() => formatSearchDate(new Date()), []);
 
   const [allergies, allergiesLoading] = useSearchResources(
     'AllergyIntolerance',
@@ -502,6 +727,18 @@ export function useLivePatientRecord(patientKey: string | undefined): LivePatien
     patientRef ? { subject: patientRef, code: '44261-6,70274-6', _count: 100, _sort: '-date' } : undefined,
     searchOptions
   );
+  const [vitalObservations, vitalObservationsLoading] = useSearchResources(
+    'Observation',
+    patientRef
+      ? { subject: patientRef, code: '29463-7,39156-5,85354-9,8480-6,8462-4,8867-4', _count: 100, _sort: '-date' }
+      : undefined,
+    searchOptions
+  );
+  const [appointments, appointmentsLoading] = useSearchResources(
+    'Appointment',
+    patientRef ? { actor: patientRef, date: `ge${todaySearchDate}`, _count: 20, _sort: 'date' } : undefined,
+    searchOptions
+  );
 
   const patient = useMemo(
     () =>
@@ -518,7 +755,9 @@ export function useLivePatientRecord(patientKey: string | undefined): LivePatien
             questionnaireResponses,
             tasks,
             compositions,
-            scoreObservations
+            scoreObservations,
+            vitalObservations,
+            appointments
           )
         : undefined,
     [
@@ -533,6 +772,8 @@ export function useLivePatientRecord(patientKey: string | undefined): LivePatien
       patientResource,
       questionnaireResponses,
       scoreObservations,
+      vitalObservations,
+      appointments,
       tasks,
     ]
   );
@@ -552,6 +793,8 @@ export function useLivePatientRecord(patientKey: string | undefined): LivePatien
       questionnaireResponsesLoading ||
       tasksLoading ||
       compositionsLoading ||
-      scoreObservationsLoading,
+      scoreObservationsLoading ||
+      vitalObservationsLoading ||
+      appointmentsLoading,
   };
 }

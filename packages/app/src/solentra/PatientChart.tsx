@@ -24,6 +24,8 @@ import {
   IconActivity,
   IconAlertTriangle,
   IconArrowLeft,
+  IconBrain,
+  IconBuilding,
   IconCalendar,
   IconChartLine,
   IconCheck,
@@ -34,10 +36,13 @@ import {
   IconClipboardList,
   IconClockHour4,
   IconCurrencyDollar,
+  IconDroplet,
   IconEdit,
   IconExternalLink,
   IconFileInvoice,
   IconFlask,
+  IconHeart,
+  IconMedicalCross,
   IconMicrophone,
   IconNotes,
   IconPill,
@@ -48,6 +53,7 @@ import {
   IconShieldCheck,
   IconTrendingUp,
   IconUser,
+  IconWeight,
 } from '@tabler/icons-react';
 import type { Patient as FhirPatient, Task } from '@medplum/fhirtypes';
 import { Loading, useMedplum } from '@medplum/react';
@@ -77,13 +83,28 @@ interface Assessment {
   tool: string; date: string; score: number; maxScore: number;
   severity: string; color: string;
 }
+export interface MedTrial {
+  name: string; dose: string; startDate: string; endDate: string;
+  reason: string; outcome: string;
+}
+export interface Vital {
+  date: string; weight?: string; bmi?: string; bp?: string; hr?: string;
+}
 export interface Patient {
   name: string; dob: string; age: number; mrn: string;
   pronouns: string; phone: string; insurance: string; pcp: string;
   diagnoses: string[]; allergies: string[]; flags: string[];
   meds: Medication[]; labs: Lab[]; notes: Note[]; assessments: Assessment[];
+  vitals: Vital[];
+  medTrials: MedTrial[];
+  pmh: string[];
+  psh: string[];
+  psychiatricHistory: string[];
+  substanceUse: string[];
   socialHistory: string[]; familyHistory: string[];
   hospitalizations: string[];
+  safetyPlanOnFile: boolean;
+  nextAppointment?: string;
 }
 
 export const PATIENTS: Record<string, Patient> = {
@@ -156,21 +177,50 @@ export const PATIENTS: Record<string, Patient> = {
       { tool: 'GAD-7',   date: '01/08/2026', score: 8,  maxScore: 21, severity: 'Mild',             color: 'green'  },
       { tool: 'C-SSRS',  date: '02/15/2026', score: 2,  maxScore: 5,  severity: 'Passive ideation', color: 'orange' },
     ],
+    vitals: [
+      { date: '02/15/2026', weight: '138 lbs', bmi: '23.1', bp: '118/74', hr: '72 bpm' },
+      { date: '11/20/2025', weight: '141 lbs', bmi: '23.6', bp: '122/78', hr: '76 bpm' },
+    ],
+    medTrials: [
+      { name: 'Fluoxetine', dose: '20mg', startDate: '01/2021', endDate: '08/2021', reason: 'MDD', outcome: 'Partial response; discontinued due to sexual side effects' },
+      { name: 'Escitalopram', dose: '10mg', startDate: '09/2021', endDate: '02/2023', reason: 'MDD + GAD', outcome: 'Inadequate response after 4 months; switched to Sertraline' },
+      { name: 'Bupropion', dose: '150mg', startDate: '03/2022', endDate: '03/2022', reason: 'Augmentation trial', outcome: 'STOPPED — lowered seizure threshold, single brief seizure episode. ALLERGY DOCUMENTED.' },
+    ],
+    pmh: ['Migraines (managed with sumatriptan PRN)', 'Iron-deficiency anemia (2020, resolved)'],
+    psh: ['Appendectomy 2014 (uncomplicated)'],
+    psychiatricHistory: [
+      'First depressive episode age 22 (college, following bereavement)',
+      'Previous provider: Dr. Susan Holt, NP (2019–2022, Boston)',
+      'Outpatient therapy: CBT with therapist Lisa Monroe, LCSW (ongoing)',
+      'No prior ECT or TMS',
+      'No prior partial or intensive outpatient programs',
+    ],
+    substanceUse: [
+      'Alcohol: 1–2 drinks/week (social); no history of misuse or withdrawal',
+      'Cannabis: Denies current or past use',
+      'Tobacco: Never smoker',
+      'Illicit substances: Denies',
+      'Caffeine: 2 cups coffee/day',
+      'CAGE score: 0 (last screened 02/2026)',
+    ],
     socialHistory: [
       'Lives alone in apartment; supportive sister nearby',
-      'Works as a graphic designer (remote)',
-      'Non-smoker; occasional alcohol (1–2 drinks/week)',
-      'No illicit drug use; denies cannabis',
-      'Recent relationship ended November 2025',
+      'Works as a graphic designer (remote, stable employment)',
+      'Single; ended long-term relationship November 2025',
+      'Graduated UMass Boston 2010 (BFA Graphic Design)',
+      'No legal history',
     ],
     familyHistory: [
-      'Mother: Depression, treated with Prozac',
-      'Father: Alcohol use disorder',
-      'Maternal aunt: Bipolar I',
+      'Mother: MDD, treated with fluoxetine — good response',
+      'Father: Alcohol use disorder, estranged',
+      'Maternal aunt: Bipolar I, hospitalized x2',
+      'No known family history of suicide completion',
     ],
     hospitalizations: [
-      '2019 — Inpatient psychiatric, 5-day stay post-overdose (Tylenol, non-lethal). McLean Hospital.',
+      '2019 — Inpatient psychiatric, 5-day stay post-overdose (Tylenol, non-lethal). McLean Hospital, Belmont MA. Discharged with outpatient follow-up.',
     ],
+    safetyPlanOnFile: true,
+    nextAppointment: '05/12/2026 · 2:00 PM · Dr. Carton',
   },
 
   'thomas-reed': {
@@ -212,9 +262,50 @@ export const PATIENTS: Record<string, Patient> = {
       { tool: 'YMRS',  date: '02/01/2026', score: 4,  maxScore: 60, severity: 'Minimal', color: 'green' },
       { tool: 'PHQ-9', date: '02/01/2026', score: 5,  maxScore: 27, severity: 'Minimal', color: 'green' },
     ],
-    socialHistory: ['Retired teacher', 'Married, 2 adult children', 'Non-smoker, no alcohol'],
-    familyHistory: ['Father: Bipolar disorder'],
-    hospitalizations: ['2021 — Acute manic episode, inpatient 7 days'],
+    vitals: [
+      { date: '04/02/2026', weight: '198 lbs', bmi: '28.4', bp: '134/82', hr: '68 bpm' },
+      { date: '02/01/2026', weight: '196 lbs', bmi: '28.1', bp: '130/80', hr: '70 bpm' },
+    ],
+    medTrials: [
+      { name: 'Valproate', dose: '500mg BID', startDate: '09/2018', endDate: '01/2019', reason: 'Bipolar I', outcome: 'STOPPED — elevated LFTs (hepatotoxicity). ALLERGY DOCUMENTED.' },
+      { name: 'Olanzapine', dose: '10mg QHS', startDate: '02/2019', endDate: '11/2020', reason: 'Bipolar I — acute mania', outcome: 'Effective for acute episode; discontinued due to 22 lb weight gain, metabolic concerns' },
+      { name: 'Lamotrigine', dose: '100mg', startDate: '12/2020', endDate: '08/2021', reason: 'Bipolar I maintenance', outcome: 'Ineffective for manic episodes; rash at 75mg dose (not severe, re-titrated)' },
+    ],
+    pmh: ['Hypertension (Stage 1, diet-controlled)', 'Hypothyroidism (on Levothyroxine 50mcg)', 'Epilepsy — remote, no seizures since 2009, no longer on AED'],
+    psh: ['Knee arthroscopy 2010 (right, sports injury)', 'Cholecystectomy 2017'],
+    psychiatricHistory: [
+      'First manic episode age 34 (2003), hospitalized 10 days, diagnosed Bipolar I',
+      'Previous provider: Dr. James Wolfe, MD (2003–2021, Hartford CT)',
+      'No history of psychotherapy (patient declined referrals)',
+      'No prior ECT or TMS trials',
+      '3 total psychiatric hospitalizations (2003, 2018, 2021)',
+    ],
+    substanceUse: [
+      'Alcohol: Denies current use; remote history of heavy use in 30s (self-reported)',
+      'Cannabis: Denies',
+      'Tobacco: Quit 2015, 20 pack-year history',
+      'Illicit substances: Denies',
+      'AUDIT score: 2 (low risk, last screened 02/2026)',
+    ],
+    socialHistory: [
+      'Retired high school history teacher (2024)',
+      'Married 32 years; wife Laura is primary support person',
+      '2 adult children (daughter in Boston, son in Seattle)',
+      'Active in church community; reports good social support',
+      'No legal history',
+    ],
+    familyHistory: [
+      'Father: Bipolar I, completed suicide 1998',
+      'Brother: MDD, on medication',
+      'No other known psychiatric history',
+    ],
+    hospitalizations: [
+      '2003 — First manic episode, inpatient 10 days, Hartford Hospital',
+      '2018 — Manic episode (medication noncompliance), inpatient 7 days',
+      '2021 — Manic episode triggered by sleep deprivation, inpatient 7 days',
+    ],
+    safetyPlanOnFile: true,
+    nextAppointment: '05/05/2026 · 10:00 AM · Dr. Carton',
   },
 
   'devon-williams': {
@@ -238,9 +329,39 @@ export const PATIENTS: Record<string, Patient> = {
       { tool: 'PHQ-9', date: '04/02/2026', score: 14, maxScore: 27, severity: 'Moderate', color: 'yellow' },
       { tool: 'GAD-7', date: '04/02/2026', score: 13, maxScore: 21, severity: 'Moderate', color: 'yellow' },
     ],
-    socialHistory: ['Works in tech (software engineering)', 'Single', 'Cannabis use occasionally'],
-    familyHistory: ['Mother: Anxiety disorder', 'No known psychiatric hospitalizations'],
+    vitals: [
+      { date: '04/02/2026', weight: '162 lbs', bmi: '24.7', bp: '116/70', hr: '78 bpm' },
+    ],
+    medTrials: [],
+    pmh: ['Asthma (mild intermittent, albuterol PRN)', 'Seasonal allergies'],
+    psh: [],
+    psychiatricHistory: [
+      'Presenting for initial psychiatric evaluation — no prior psychiatric treatment',
+      'Longstanding anxiety symptoms since adolescence, not previously treated',
+      'Self-referred following increased difficulty functioning at work',
+    ],
+    substanceUse: [
+      'Cannabis: 2–3 times/week (recreational, evenings); uses to help with anxiety and sleep',
+      'Alcohol: 2–3 drinks/week; no history of misuse',
+      'Tobacco: Never',
+      'Other substances: Denies',
+      'DAST-10: 3 (low risk, screened 04/02/2026)',
+    ],
+    socialHistory: [
+      'Software engineer at tech startup (remote)',
+      'Single; lives with roommate in Cambridge',
+      'Identifies as non-binary (they/them); supportive friend network',
+      'No legal history',
+      'Good housing stability',
+    ],
+    familyHistory: [
+      'Mother: GAD, managed with therapy only',
+      'Father: No known psychiatric history',
+      'Maternal grandfather: Depression',
+    ],
     hospitalizations: [],
+    safetyPlanOnFile: false,
+    nextAppointment: '04/30/2026 · 3:30 PM · Dr. Carton',
   },
 };
 
@@ -254,145 +375,272 @@ function getPatient(slug: string): Patient | null {
   return PATIENTS[slug] ?? null;
 }
 
+// ── Storyboard Sidebar ────────────────────────────────────────────────────────
+
+function Storyboard({ patient }: { patient: Patient }): JSX.Element {
+  const latestPHQ   = patient.assessments.filter((a) => a.tool === 'PHQ-9').sort((a, b) => b.date.localeCompare(a.date))[0];
+  const latestGAD   = patient.assessments.filter((a) => a.tool === 'GAD-7').sort((a, b) => b.date.localeCompare(a.date))[0];
+  const latestCSSRS = patient.assessments.filter((a) => a.tool === 'C-SSRS').sort((a, b) => b.date.localeCompare(a.date))[0];
+  const latestVital = patient.vitals[0];
+  const activeMeds  = patient.meds.filter((m) => m.status !== 'discontinued');
+
+  return (
+    <Box className={classes.storyboard}>
+      {/* ALLERGIES — always pinned at top in red per Epic convention */}
+      <Box style={{ background: '#fff5f5', borderBottom: '2px solid #ffc9c9', padding: '8px 12px' }}>
+        <Group gap={5} mb={4}>
+          <IconAlertTriangle size={12} color="#e03131" />
+          <Text size="10px" fw={800} c="red" style={{ letterSpacing: 0.6, textTransform: 'uppercase' }}>Allergies</Text>
+        </Group>
+        <Stack gap={3}>
+          {patient.allergies.map((a, i) => (
+            <Text key={i} size="xs" c="red" fw={600}>⚠ {a}</Text>
+          ))}
+        </Stack>
+      </Box>
+
+      {/* PROBLEM LIST */}
+      <Box className={classes.sbSection}>
+        <Text className={classes.sbLabel}>Problem List</Text>
+        <Stack gap={4}>
+          {patient.diagnoses.map((d, i) => (
+            <Group key={i} gap={5} wrap="nowrap" align="flex-start">
+              <Text size="xs" fw={700} c="violet" style={{ flexShrink: 0, lineHeight: 1.4 }}>{i + 1}.</Text>
+              <Text size="xs" style={{ lineHeight: 1.4 }}>{d}</Text>
+            </Group>
+          ))}
+          {patient.diagnoses.length === 0 && <Text size="xs" c="dimmed">No active diagnoses</Text>}
+        </Stack>
+      </Box>
+
+      {/* MEDICATIONS */}
+      <Box className={classes.sbSection}>
+        <Text className={classes.sbLabel}>Medications</Text>
+        {activeMeds.length === 0
+          ? <Text size="xs" c="dimmed">No active medications</Text>
+          : activeMeds.map((m, i) => (
+            <Box key={i} mb={5}>
+              <Group gap={4} wrap="nowrap" align="center">
+                <Text size="xs" fw={600} style={{ flex: 1, lineHeight: 1.3 }}>{m.name} {m.dose}</Text>
+                {m.status === 'hold' && <Badge size="xs" color="orange" variant="filled" style={{ flexShrink: 0 }}>hold</Badge>}
+                {m.refillsLeft === 0 && m.status === 'active' && <Badge size="xs" color="red" variant="light" style={{ flexShrink: 0 }}>0 refills</Badge>}
+              </Group>
+              <Text size="10px" c="dimmed">{m.sig}</Text>
+            </Box>
+          ))
+        }
+      </Box>
+
+      {/* ASSESSMENT SCORES */}
+      {(latestPHQ || latestGAD || latestCSSRS) && (
+        <Box className={classes.sbSection}>
+          <Text className={classes.sbLabel}>Assessment Scores</Text>
+          <Stack gap={6}>
+            {[latestPHQ, latestGAD, latestCSSRS].filter(Boolean).map((a) => (
+              <Box key={a!.tool}>
+                <Group justify="space-between" mb={2}>
+                  <Text size="xs" fw={600}>{a!.tool}</Text>
+                  <Badge size="xs" color={a!.color}>{a!.score}/{a!.maxScore} — {a!.severity}</Badge>
+                </Group>
+                <Progress value={(a!.score / a!.maxScore) * 100} color={a!.color} size="xs" radius="xl" />
+                <Text size="10px" c="dimmed" mt={1}>{a!.date}</Text>
+              </Box>
+            ))}
+          </Stack>
+        </Box>
+      )}
+
+      {/* SAFETY */}
+      <Box className={classes.sbSection}>
+        <Text className={classes.sbLabel}>Safety</Text>
+        <Stack gap={3}>
+          {patient.safetyPlanOnFile
+            ? <Group gap={4}><IconCheck size={12} color="#2f9e44" /><Text size="xs" c="green" fw={600}>Safety plan on file</Text></Group>
+            : <Group gap={4}><IconAlertTriangle size={12} color="#e8590c" /><Text size="xs" c="orange">No safety plan on file</Text></Group>
+          }
+          {patient.hospitalizations.length > 0 && (
+            <Group gap={4} align="flex-start" wrap="nowrap">
+              <IconBuilding size={11} color="#868e96" style={{ flexShrink: 0, marginTop: 2 }} />
+              <Text size="10px" c="dimmed">{patient.hospitalizations.length} prior hospitalization{patient.hospitalizations.length > 1 ? 's' : ''}</Text>
+            </Group>
+          )}
+          {patient.flags.map((f, i) => (
+            <Group key={i} gap={4} wrap="nowrap" align="flex-start">
+              <IconAlertTriangle size={11} color="#e8590c" style={{ flexShrink: 0, marginTop: 2 }} />
+              <Text size="10px" c="orange">{f}</Text>
+            </Group>
+          ))}
+        </Stack>
+      </Box>
+
+      {/* VITALS */}
+      {latestVital && (
+        <Box className={classes.sbSection}>
+          <Text className={classes.sbLabel}>Vitals</Text>
+          <Stack gap={2}>
+            {latestVital.weight && (
+              <Group gap={5}><IconWeight size={11} color="#868e96" /><Text size="xs">Weight: <Text span fw={600}>{latestVital.weight}</Text></Text></Group>
+            )}
+            {latestVital.bmi && (
+              <Group gap={5}><IconActivity size={11} color="#868e96" /><Text size="xs">BMI: <Text span fw={600}>{latestVital.bmi}</Text></Text></Group>
+            )}
+            {latestVital.bp && (
+              <Group gap={5}><IconHeart size={11} color="#868e96" /><Text size="xs">BP: <Text span fw={600}>{latestVital.bp}</Text></Text></Group>
+            )}
+            {latestVital.hr && (
+              <Group gap={5}><IconActivity size={11} color="#868e96" /><Text size="xs">HR: <Text span fw={600}>{latestVital.hr}</Text></Text></Group>
+            )}
+            <Text size="10px" c="dimmed">{latestVital.date}</Text>
+          </Stack>
+        </Box>
+      )}
+
+      {/* NEXT APPOINTMENT */}
+      {patient.nextAppointment && (
+        <Box className={classes.sbSection}>
+          <Text className={classes.sbLabel}>Next Visit</Text>
+          <Group gap={5} wrap="nowrap">
+            <IconCalendar size={12} color="#1971c2" />
+            <Text size="xs" fw={600} c="blue">{patient.nextAppointment}</Text>
+          </Group>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 // ── Overview Tab ──────────────────────────────────────────────────────────────
 
 function OverviewTab({ patient }: { patient: Patient }): JSX.Element {
-  const latestPHQ = patient.assessments.filter((a) => a.tool === 'PHQ-9').sort((a, b) => b.date.localeCompare(a.date))[0];
-  const latestGAD = patient.assessments.filter((a) => a.tool === 'GAD-7').sort((a, b) => b.date.localeCompare(a.date))[0];
-  const latestNote = patient.notes[0];
+  const latestNote  = patient.notes[0];
+  const latestVital = patient.vitals[0];
+  const abnormalLabs = patient.labs.filter((l) => l.status !== 'normal');
+  const refillAlerts = patient.meds.filter((m) => m.status === 'active' && m.refillsLeft === 0);
 
   return (
-    <Stack gap="md" p="md">
-      <Group gap="md" align="flex-start" wrap="wrap">
-        {/* Diagnoses */}
-        <Card withBorder flex={1} miw={280} p="sm">
-          <Group gap={6} mb="xs">
+    <Stack gap="sm" p="md">
+      {/* Row 1: Problems + Meds */}
+      <Group gap="sm" align="flex-start" wrap="nowrap" style={{ minWidth: 0 }}>
+        {/* Active Problem List */}
+        <Card withBorder p="sm" style={{ flex: '1 1 0', minWidth: 0 }}>
+          <Group gap={6} mb={8}>
             <ThemeIcon size="sm" color="violet" variant="light"><IconClipboardList size={13} /></ThemeIcon>
-            <Text size="sm" fw={700}>Active Diagnoses</Text>
+            <Text size="sm" fw={700}>Problem List</Text>
           </Group>
-          <Stack gap={4}>
+          <Stack gap={5}>
             {patient.diagnoses.map((d, i) => (
-              <Group key={i} gap={6} wrap="nowrap">
-                <Box w={6} h={6} style={{ borderRadius: '50%', background: '#7950f2', flexShrink: 0, marginTop: 2 }} />
+              <Group key={i} gap={8} wrap="nowrap" align="flex-start">
+                <Text size="xs" fw={700} c="violet" style={{ flexShrink: 0 }}>{i + 1}.</Text>
                 <Text size="xs">{d}</Text>
               </Group>
             ))}
-            {patient.diagnoses.length === 0 && <Text size="xs" c="dimmed">No active diagnoses</Text>}
+            {patient.diagnoses.length === 0 && <Text size="xs" c="dimmed">No active diagnoses on file</Text>}
           </Stack>
         </Card>
 
-        {/* Allergies */}
-        <Card withBorder miw={200} p="sm">
-          <Group gap={6} mb="xs">
-            <ThemeIcon size="sm" color="red" variant="light"><IconAlertTriangle size={13} /></ThemeIcon>
-            <Text size="sm" fw={700}>Allergies</Text>
-          </Group>
-          <Stack gap={4}>
-            {patient.allergies.map((a, i) => <Badge key={i} size="sm" color="red" variant="light" fullWidth style={{ textAlign: 'left' }}>{a}</Badge>)}
-            {patient.allergies.length === 0 && <Text size="xs" c="dimmed">NKDA</Text>}
-          </Stack>
-        </Card>
-
-        {/* Scores */}
-        {(latestPHQ || latestGAD) && (
-          <Card withBorder miw={220} p="sm">
-            <Group gap={6} mb="xs">
-              <ThemeIcon size="sm" color="blue" variant="light"><IconChartLine size={13} /></ThemeIcon>
-              <Text size="sm" fw={700}>Latest Scores</Text>
+        {/* Active Medications */}
+        <Card withBorder p="sm" style={{ flex: '1 1 0', minWidth: 0 }}>
+          <Group gap={6} mb={8} justify="space-between">
+            <Group gap={6}>
+              <ThemeIcon size="sm" color="teal" variant="light"><IconPill size={13} /></ThemeIcon>
+              <Text size="sm" fw={700}>Medications</Text>
+              <Badge size="xs" color="teal" variant="light">{patient.meds.filter((m) => m.status === 'active').length} active</Badge>
             </Group>
-            <Stack gap={8}>
-              {latestPHQ && (
-                <Box>
-                  <Group justify="space-between" mb={2}>
-                    <Text size="xs" fw={600}>PHQ-9</Text>
-                    <Badge size="xs" color={latestPHQ.color}>{latestPHQ.score} — {latestPHQ.severity}</Badge>
-                  </Group>
-                  <Progress value={(latestPHQ.score / latestPHQ.maxScore) * 100} color={latestPHQ.color} size="sm" />
+            {refillAlerts.length > 0 && (
+              <Badge size="xs" color="red" variant="filled">{refillAlerts.length} refill{refillAlerts.length > 1 ? 's' : ''} needed</Badge>
+            )}
+          </Group>
+          <Stack gap={5}>
+            {patient.meds.filter((m) => m.status !== 'discontinued').map((m, i) => (
+              <Group key={i} gap={6} wrap="nowrap" justify="space-between">
+                <Box style={{ minWidth: 0 }}>
+                  <Text size="xs" fw={600}>{m.name} {m.dose}</Text>
+                  <Text size="10px" c="dimmed">{m.sig}</Text>
                 </Box>
-              )}
-              {latestGAD && (
-                <Box>
-                  <Group justify="space-between" mb={2}>
-                    <Text size="xs" fw={600}>GAD-7</Text>
-                    <Badge size="xs" color={latestGAD.color}>{latestGAD.score} — {latestGAD.severity}</Badge>
-                  </Group>
-                  <Progress value={(latestGAD.score / latestGAD.maxScore) * 100} color={latestGAD.color} size="sm" />
-                </Box>
-              )}
-            </Stack>
-          </Card>
-        )}
+                <Group gap={4} style={{ flexShrink: 0 }}>
+                  {m.status === 'hold' && <Badge size="xs" color="orange">Hold</Badge>}
+                  {m.refillsLeft === 0 && m.status === 'active' && <Badge size="xs" color="red" variant="light">0 refills</Badge>}
+                  {m.refillsLeft > 0 && <Text size="10px" c="dimmed">{m.refillsLeft} refill{m.refillsLeft > 1 ? 's' : ''}</Text>}
+                </Group>
+              </Group>
+            ))}
+            {patient.meds.length === 0 && <Text size="xs" c="dimmed">No medications on file</Text>}
+          </Stack>
+        </Card>
       </Group>
 
-      {/* Active Meds Summary */}
-      {patient.meds.length > 0 && (
-        <Card withBorder p="sm">
-          <Group gap={6} mb="xs">
-            <ThemeIcon size="sm" color="teal" variant="light"><IconPill size={13} /></ThemeIcon>
-            <Text size="sm" fw={700}>Active Medications</Text>
+      {/* Row 2: Labs + Vitals */}
+      <Group gap="sm" align="flex-start" wrap="nowrap">
+        {/* Labs — highlight abnormals */}
+        <Card withBorder p="sm" style={{ flex: '1 1 0', minWidth: 0 }}>
+          <Group gap={6} mb={8}>
+            <ThemeIcon size="sm" color={abnormalLabs.length > 0 ? 'orange' : 'blue'} variant="light"><IconFlask size={13} /></ThemeIcon>
+            <Text size="sm" fw={700}>Recent Labs</Text>
+            {abnormalLabs.length > 0 && <Badge size="xs" color="orange">! {abnormalLabs.length} abnormal</Badge>}
           </Group>
-          <Group gap="xs" wrap="wrap">
-            {patient.meds.filter((m) => m.status === 'active').map((m, i) => (
-              <Badge key={i} size="sm" variant="outline" color="teal">{m.name} {m.dose}</Badge>
-            ))}
-            {patient.meds.filter((m) => m.status === 'hold').map((m, i) => (
-              <Badge key={i} size="sm" variant="outline" color="orange">{m.name} {m.dose} (hold)</Badge>
-            ))}
-          </Group>
+          {patient.labs.length === 0
+            ? <Text size="xs" c="dimmed">No results on file</Text>
+            : <Stack gap={3}>
+                {patient.labs.slice(0, 6).map((lab, i) => (
+                  <Group key={i} justify="space-between" wrap="nowrap">
+                    <Text size="xs" fw={lab.status !== 'normal' ? 700 : 400} c={lab.status === 'critical' ? 'red' : lab.status === 'high' ? 'orange' : lab.status === 'low' ? 'blue' : undefined}>
+                      {lab.name}
+                    </Text>
+                    <Group gap={4}>
+                      <Text size="xs" fw={600}>{lab.value} {lab.unit}</Text>
+                      {lab.status !== 'normal' && <Badge size="xs" color={lab.status === 'critical' ? 'red' : lab.status === 'high' ? 'orange' : 'blue'} variant="light">{lab.status === 'high' ? '↑' : lab.status === 'low' ? '↓' : '!!'}</Badge>}
+                    </Group>
+                  </Group>
+                ))}
+              </Stack>
+          }
         </Card>
-      )}
 
-      {/* Last Note Snippet */}
+        {/* Vitals */}
+        <Card withBorder p="sm" style={{ flex: '1 1 0', minWidth: 0 }}>
+          <Group gap={6} mb={8}>
+            <ThemeIcon size="sm" color="pink" variant="light"><IconHeart size={13} /></ThemeIcon>
+            <Text size="sm" fw={700}>Vitals</Text>
+            {latestVital && <Text size="xs" c="dimmed">{latestVital.date}</Text>}
+          </Group>
+          {!latestVital
+            ? <Text size="xs" c="dimmed">No vitals recorded</Text>
+            : <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px' }}>
+                {latestVital.weight && <Box><Text size="10px" c="dimmed" tt="uppercase" fw={600}>Weight</Text><Text size="sm" fw={700}>{latestVital.weight}</Text></Box>}
+                {latestVital.bmi && <Box><Text size="10px" c="dimmed" tt="uppercase" fw={600}>BMI</Text><Text size="sm" fw={700}>{latestVital.bmi}</Text></Box>}
+                {latestVital.bp && <Box><Text size="10px" c="dimmed" tt="uppercase" fw={600}>Blood Pressure</Text><Text size="sm" fw={700}>{latestVital.bp}</Text></Box>}
+                {latestVital.hr && <Box><Text size="10px" c="dimmed" tt="uppercase" fw={600}>Heart Rate</Text><Text size="sm" fw={700}>{latestVital.hr}</Text></Box>}
+              </Box>
+          }
+        </Card>
+      </Group>
+
+      {/* Row 3: Last Note */}
       {latestNote && (
         <Card withBorder p="sm">
-          <Group justify="space-between" mb="xs">
+          <Group gap={6} mb={8} justify="space-between">
             <Group gap={6}>
               <ThemeIcon size="sm" color="gray" variant="light"><IconNotes size={13} /></ThemeIcon>
               <Text size="sm" fw={700}>Last Note</Text>
-              <Text size="xs" c="dimmed">{latestNote.date} · {latestNote.type} · {latestNote.provider}</Text>
             </Group>
+            <Text size="xs" c="dimmed">{latestNote.date} · {latestNote.type} · {latestNote.provider}</Text>
           </Group>
-          <Text size="xs" lineClamp={3}>{latestNote.summary}</Text>
-          <Divider my="xs" />
-          <Text size="xs" fw={600} mb={4}>Plan</Text>
-          <Stack gap={2}>
-            {latestNote.plan.map((p, i) => (
-              <Group key={i} gap={6}>
-                <IconCheck size={11} color="green" />
-                <Text size="xs">{p}</Text>
-              </Group>
-            ))}
-          </Stack>
-        </Card>
-      )}
-
-      {/* Social & Family */}
-      <Group gap="md" align="flex-start" wrap="wrap">
-        <Card withBorder flex={1} miw={250} p="sm">
-          <Group gap={6} mb="xs">
-            <ThemeIcon size="sm" color="indigo" variant="light"><IconUser size={13} /></ThemeIcon>
-            <Text size="sm" fw={700}>Social History</Text>
-          </Group>
-          <Stack gap={3}>
-            {patient.socialHistory.map((s, i) => <Text key={i} size="xs">• {s}</Text>)}
-          </Stack>
-        </Card>
-        <Card withBorder flex={1} miw={250} p="sm">
-          <Group gap={6} mb="xs">
-            <ThemeIcon size="sm" color="grape" variant="light"><IconShieldCheck size={13} /></ThemeIcon>
-            <Text size="sm" fw={700}>Family History</Text>
-          </Group>
-          <Stack gap={3}>
-            {patient.familyHistory.map((f, i) => <Text key={i} size="xs">• {f}</Text>)}
-          </Stack>
-          {patient.hospitalizations.length > 0 && (
+          <Text size="xs" mb="xs" lineClamp={3}>{latestNote.summary}</Text>
+          {latestNote.plan.length > 0 && (
             <>
-              <Text size="xs" fw={700} mt="sm" mb={4}>Hospitalizations</Text>
-              {patient.hospitalizations.map((h, i) => <Text key={i} size="xs" c="dimmed">• {h}</Text>)}
+              <Divider my={6} label="Plan" labelPosition="left" />
+              <Stack gap={2}>
+                {latestNote.plan.map((p, i) => (
+                  <Group key={i} gap={5} wrap="nowrap">
+                    <IconCheck size={11} color="#2f9e44" style={{ flexShrink: 0 }} />
+                    <Text size="xs">{p}</Text>
+                  </Group>
+                ))}
+              </Stack>
             </>
           )}
         </Card>
-      </Group>
+      )}
     </Stack>
   );
 }
@@ -447,51 +695,186 @@ function NotesTab({ patient }: { patient: Patient }): JSX.Element {
 // ── Medications Tab ───────────────────────────────────────────────────────────
 
 function MedsTab({ patient }: { patient: Patient }): JSX.Element {
-  if (patient.meds.length === 0) {
-    return (
-      <Box p="xl" style={{ textAlign: 'center' }}>
-        <Text c="dimmed" size="sm">No medications on file.</Text>
-      </Box>
-    );
-  }
   const statusColor: Record<string, string> = { active: 'teal', hold: 'orange', discontinued: 'red' };
+  const activeMeds = patient.meds.filter((m) => m.status !== 'discontinued');
+  const discMeds   = patient.meds.filter((m) => m.status === 'discontinued');
+
   return (
-    <Box p="md">
-      <Table highlightOnHover withTableBorder withColumnBorders>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Medication</Table.Th>
-            <Table.Th>Dose</Table.Th>
-            <Table.Th>Instructions</Table.Th>
-            <Table.Th>Started</Table.Th>
-            <Table.Th>Last Filled</Table.Th>
-            <Table.Th>Refills</Table.Th>
-            <Table.Th>Status</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {patient.meds.map((med, i) => (
-            <Table.Tr key={i}>
-              <Table.Td><Text size="sm" fw={600}>{med.name}</Text></Table.Td>
-              <Table.Td><Text size="sm">{med.dose}</Text></Table.Td>
-              <Table.Td><Text size="xs" c="dimmed">{med.sig}</Text></Table.Td>
-              <Table.Td><Text size="xs">{med.startDate}</Text></Table.Td>
-              <Table.Td><Text size="xs">{med.lastFilled}</Text></Table.Td>
-              <Table.Td>
-                <Badge size="xs" color={med.refillsLeft === 0 ? 'red' : 'green'}>
-                  {med.refillsLeft === 0 ? 'None' : med.refillsLeft}
-                </Badge>
-              </Table.Td>
-              <Table.Td><Badge size="xs" color={statusColor[med.status]}>{med.status}</Badge></Table.Td>
-            </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
-    </Box>
+    <Stack gap={0} p="md">
+      {/* Active & On Hold */}
+      <Group gap={8} mb="xs" align="center">
+        <ThemeIcon size="sm" color="teal" variant="light"><IconPill size={13} /></ThemeIcon>
+        <Text size="sm" fw={700}>Current Medications</Text>
+        <Badge size="xs" color="teal" variant="light">{activeMeds.filter((m) => m.status === 'active').length} active</Badge>
+        {activeMeds.some((m) => m.status === 'hold') && (
+          <Badge size="xs" color="orange" variant="light">{activeMeds.filter((m) => m.status === 'hold').length} on hold</Badge>
+        )}
+      </Group>
+
+      {activeMeds.length === 0
+        ? <Text size="xs" c="dimmed" mb="md">No current medications.</Text>
+        : <Table highlightOnHover withTableBorder withColumnBorders mb="xl">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Medication</Table.Th>
+                <Table.Th>Dose</Table.Th>
+                <Table.Th>Instructions</Table.Th>
+                <Table.Th>Started</Table.Th>
+                <Table.Th>Last Filled</Table.Th>
+                <Table.Th>Refills</Table.Th>
+                <Table.Th>Status</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {activeMeds.map((med, i) => (
+                <Table.Tr key={i} style={med.refillsLeft === 0 && med.status === 'active' ? { background: '#fff8f0' } : {}}>
+                  <Table.Td><Text size="sm" fw={600}>{med.name}</Text></Table.Td>
+                  <Table.Td><Text size="sm">{med.dose}</Text></Table.Td>
+                  <Table.Td><Text size="xs" c="dimmed">{med.sig}</Text></Table.Td>
+                  <Table.Td><Text size="xs">{med.startDate}</Text></Table.Td>
+                  <Table.Td><Text size="xs">{med.lastFilled}</Text></Table.Td>
+                  <Table.Td>
+                    <Badge size="xs" color={med.refillsLeft === 0 ? 'red' : 'green'}>
+                      {med.refillsLeft === 0 ? '0 — renewal needed' : med.refillsLeft}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td><Badge size="xs" color={statusColor[med.status]}>{med.status}</Badge></Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+      }
+
+      {/* Previous Medication Trials */}
+      {(discMeds.length > 0 || patient.medTrials.length > 0) && (
+        <>
+          <Divider my="sm" />
+          <Group gap={8} mb="xs" align="center">
+            <ThemeIcon size="sm" color="gray" variant="light"><IconMedicalCross size={13} /></ThemeIcon>
+            <Text size="sm" fw={700}>Medication Trial History</Text>
+            <Badge size="xs" color="gray" variant="light">{discMeds.length + patient.medTrials.length} entries</Badge>
+          </Group>
+          <Table withTableBorder withColumnBorders>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Medication</Table.Th>
+                <Table.Th>Dose</Table.Th>
+                <Table.Th>Duration</Table.Th>
+                <Table.Th>Indication</Table.Th>
+                <Table.Th>Outcome / Reason Stopped</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {patient.medTrials.map((t, i) => (
+                <Table.Tr key={`trial-${i}`} style={t.outcome.toUpperCase().includes('STOP') || t.outcome.toUpperCase().includes('ALLERGY') ? { background: '#fff5f5' } : {}}>
+                  <Table.Td><Text size="sm" fw={600}>{t.name}</Text></Table.Td>
+                  <Table.Td><Text size="sm">{t.dose}</Text></Table.Td>
+                  <Table.Td><Text size="xs" c="dimmed">{t.startDate} → {t.endDate}</Text></Table.Td>
+                  <Table.Td><Text size="xs">{t.reason}</Text></Table.Td>
+                  <Table.Td>
+                    <Text size="xs" c={t.outcome.toUpperCase().includes('STOP') || t.outcome.toUpperCase().includes('ALLERGY') ? 'red' : 'dark'}>
+                      {t.outcome}
+                    </Text>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+              {discMeds.map((med, i) => (
+                <Table.Tr key={`disc-${i}`}>
+                  <Table.Td><Text size="sm" fw={600}>{med.name}</Text></Table.Td>
+                  <Table.Td><Text size="sm">{med.dose}</Text></Table.Td>
+                  <Table.Td><Text size="xs" c="dimmed">{med.startDate} → —</Text></Table.Td>
+                  <Table.Td><Text size="xs" c="dimmed">—</Text></Table.Td>
+                  <Table.Td><Badge size="xs" color="red" variant="light">Discontinued</Badge></Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </>
+      )}
+    </Stack>
   );
 }
 
 // ── Labs Tab ──────────────────────────────────────────────────────────────────
+
+function HistoryTab({ patient }: { patient: Patient }): JSX.Element {
+  const renderItems = (items: string[], emptyText: string): JSX.Element =>
+    items.length === 0 ? (
+      <Text size="xs" c="dimmed">{emptyText}</Text>
+    ) : (
+      <Stack gap={4}>
+        {items.map((item, i) => (
+          <Text key={i} size="xs">- {item}</Text>
+        ))}
+      </Stack>
+    );
+
+  return (
+    <Stack gap="sm" p="md">
+      <Card withBorder p="sm">
+        <Group gap={6} mb="xs">
+          <ThemeIcon size="sm" color="violet" variant="light"><IconBrain size={13} /></ThemeIcon>
+          <Text size="sm" fw={700}>Psychiatric History</Text>
+        </Group>
+        {renderItems(patient.psychiatricHistory, 'No psychiatric history on file.')}
+      </Card>
+
+      <Group gap="sm" align="flex-start" wrap="nowrap">
+        <Card withBorder p="sm" style={{ flex: '1 1 0', minWidth: 0 }}>
+          <Group gap={6} mb="xs">
+            <ThemeIcon size="sm" color="blue" variant="light"><IconMedicalCross size={13} /></ThemeIcon>
+            <Text size="sm" fw={700}>Past Medical History</Text>
+          </Group>
+          {renderItems(patient.pmh, 'No PMH on file.')}
+        </Card>
+
+        <Card withBorder p="sm" style={{ flex: '1 1 0', minWidth: 0 }}>
+          <Group gap={6} mb="xs">
+            <ThemeIcon size="sm" color="grape" variant="light"><IconMedicalCross size={13} /></ThemeIcon>
+            <Text size="sm" fw={700}>Past Surgical History</Text>
+          </Group>
+          {renderItems(patient.psh, 'No surgical history on file.')}
+        </Card>
+      </Group>
+
+      <Group gap="sm" align="flex-start" wrap="nowrap">
+        <Card withBorder p="sm" style={{ flex: '1 1 0', minWidth: 0 }}>
+          <Group gap={6} mb="xs">
+            <ThemeIcon size="sm" color="teal" variant="light"><IconBuilding size={13} /></ThemeIcon>
+            <Text size="sm" fw={700}>Social History</Text>
+          </Group>
+          {renderItems(patient.socialHistory, 'No social history on file.')}
+        </Card>
+
+        <Card withBorder p="sm" style={{ flex: '1 1 0', minWidth: 0 }}>
+          <Group gap={6} mb="xs">
+            <ThemeIcon size="sm" color="cyan" variant="light"><IconDroplet size={13} /></ThemeIcon>
+            <Text size="sm" fw={700}>Substance Use</Text>
+          </Group>
+          {renderItems(patient.substanceUse, 'No substance use history on file.')}
+        </Card>
+      </Group>
+
+      <Group gap="sm" align="flex-start" wrap="nowrap">
+        <Card withBorder p="sm" style={{ flex: '1 1 0', minWidth: 0 }}>
+          <Group gap={6} mb="xs">
+            <ThemeIcon size="sm" color="pink" variant="light"><IconHeart size={13} /></ThemeIcon>
+            <Text size="sm" fw={700}>Family History</Text>
+          </Group>
+          {renderItems(patient.familyHistory, 'No family history on file.')}
+        </Card>
+
+        <Card withBorder p="sm" style={{ flex: '1 1 0', minWidth: 0 }}>
+          <Group gap={6} mb="xs">
+            <ThemeIcon size="sm" color="orange" variant="light"><IconBuilding size={13} /></ThemeIcon>
+            <Text size="sm" fw={700}>Hospitalizations / Crisis</Text>
+          </Group>
+          {renderItems(patient.hospitalizations, 'No hospitalizations on file.')}
+        </Card>
+      </Group>
+    </Stack>
+  );
+}
 
 function LabsTab({ patient }: { patient: Patient }): JSX.Element {
   if (patient.labs.length === 0) {
@@ -1134,6 +1517,8 @@ export function PatientChart(): JSX.Element {
         </Box>
       )}
 
+      <Box className={classes.body}>
+        <Box className={classes.main}>
       {/* Chart Tabs */}
       <Tabs defaultValue="overview" className={classes.tabs}>
         <Tabs.List className={classes.tabList}>
@@ -1197,31 +1582,18 @@ export function PatientChart(): JSX.Element {
             <BillingTab patient={patient} />
           </Tabs.Panel>
           <Tabs.Panel value="history">
-            <ScrollArea h="100%">
-              <Stack gap="md" p="md">
-                <Card withBorder p="sm">
-                  <Text size="sm" fw={700} mb="xs">Hospitalizations / Crisis History</Text>
-                  {patient.hospitalizations.length === 0
-                    ? <Text size="xs" c="dimmed">No hospitalizations on file.</Text>
-                    : patient.hospitalizations.map((h, i) => <Text key={i} size="xs">• {h}</Text>)
-                  }
-                </Card>
-                <Card withBorder p="sm">
-                  <Text size="sm" fw={700} mb="xs">Social History</Text>
-                  {patient.socialHistory.map((s, i) => <Text key={i} size="xs">• {s}</Text>)}
-                </Card>
-                <Card withBorder p="sm">
-                  <Text size="sm" fw={700} mb="xs">Family History</Text>
-                  {patient.familyHistory.map((f, i) => <Text key={i} size="xs">• {f}</Text>)}
-                </Card>
-              </Stack>
-            </ScrollArea>
+            <ScrollArea h="100%"><HistoryTab patient={patient} /></ScrollArea>
           </Tabs.Panel>
         </Box>
       </Tabs>
+        </Box>
+        <Storyboard patient={patient} />
+      </Box>
     </Box>
   );
 }
 
 // Export slug helper for use in dashboard
 export { nameToSlug };
+
+

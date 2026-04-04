@@ -12,6 +12,29 @@
   flex-shrink: 0;
 }
 
+/* Two-column body: main content + storyboard sidebar */
+.body {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.storyboard {
+  width: 252px;
+  flex-shrink: 0;
+  background: white;
+  border-left: 1px solid #e9ecef;
+  overflow-y: auto;
+}
+
 .tabs {
   flex: 1;
   display: flex;
@@ -34,4 +57,19 @@
 
 .tabContent > * {
   height: 100%;
+}
+
+/* Storyboard section blocks */
+.sbSection {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f3f5;
+}
+
+.sbLabel {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #868e96;
+  margin-bottom: 6px;
 }
